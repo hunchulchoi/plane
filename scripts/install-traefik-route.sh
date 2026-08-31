@@ -68,6 +68,7 @@ awk -v router_file="$router_block" -v service_file="$service_block" '
 backup="${dynamic_file}.bak.$(date +%Y%m%d%H%M%S)"
 cp -p "$dynamic_file" "$backup"
 chmod --reference="$dynamic_file" "$candidate"
+validation_since=$(date --iso-8601=seconds)
 cp "$candidate" "$dynamic_file"
 
 if [[ -n ${TRAEFIK_VALIDATE_COMMAND:-} ]]; then
@@ -76,10 +77,19 @@ if [[ -n ${TRAEFIK_VALIDATE_COMMAND:-} ]]; then
     printf 'Traefik validation failed; restored %s\n' "$backup" >&2
     exit 1
   fi
-elif ! docker exec traefik traefik check-config --configFile=/etc/traefik/traefik.yml >/dev/null; then
-  cp -p "$backup" "$dynamic_file"
-  printf 'Traefik validation failed; restored %s\n' "$backup" >&2
-  exit 1
+else
+  sleep 2
+  if ! validation_logs=$(docker logs --since "$validation_since" traefik 2>&1); then
+    cp -p "$backup" "$dynamic_file"
+    printf 'Could not read Traefik validation logs; restored %s\n' "$backup" >&2
+    exit 1
+  fi
+  if grep -Eqi '(error|failed).*(configuration|provider|dynamic|file)|field not found|cannot decode' <<<"$validation_logs"; then
+    cp -p "$backup" "$dynamic_file"
+    printf 'Traefik rejected the dynamic configuration; restored %s\n' "$backup" >&2
+    printf '%s\n' "$validation_logs" >&2
+    exit 1
+  fi
 fi
 
 printf 'Installed Plane Traefik route (backup: %s)\n' "$backup"
