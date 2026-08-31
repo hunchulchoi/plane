@@ -42,19 +42,50 @@ if ! grep -q '^certificatesResolvers:' "$static"; then
     print "        provider: cloudflare"
     print "        resolvers:"
     print "          - \"1.1.1.1:53\""
-    print "          - \"8.8.8.8:53\""
   }' "$static" >"$static_tmp"
   mv "$static_tmp" "$static"
 fi
 
-if ! grep -A16 '^    plane-router:' "$dynamic" | grep -q 'certResolver: letsencrypt'; then
+if grep -q '8\.8\.8\.8:53' "$static"; then
+  static_tmp=$(mktemp "$traefik_dir/traefik.yml.tmp.XXXXXX")
+  grep -v '8\.8\.8\.8:53' "$static" >"$static_tmp"
+  mv "$static_tmp" "$static"
+fi
+
+ensure_router_acme() {
+  local router=$1
+  if grep -A18 "^    $router:" "$dynamic" | grep -q 'certResolver: letsencrypt'; then
+    return
+  fi
+
+  local dynamic_tmp
   dynamic_tmp=$(mktemp "$traefik_dir/dynamic.yml.tmp.XXXXXX")
-  awk '
+  awk -v target="    $router:" '
+    /^    [^ ].*:$/ { in_target = ($0 == target) }
     { print }
-    /^      service: plane-service$/ {
+    in_target && /^      service:/ {
       print "      tls:"
       print "        certResolver: letsencrypt"
+      in_target = 0
     }
+  ' "$dynamic" >"$dynamic_tmp"
+  mv "$dynamic_tmp" "$dynamic"
+}
+
+for router in plane-router traefik-dashboard minio-console-router minio-s3-router; do
+  ensure_router_acme "$router"
+done
+
+# Both dashboard routers use the same SNI certificate. Letting the redirect
+# router request it independently creates concurrent DNS-01 challenges for the
+# same name, so one cleanup can remove the other's TXT record.
+if grep -A18 '^    traefik-dashboard-redirect:' "$dynamic" | grep -q 'certResolver: letsencrypt'; then
+  dynamic_tmp=$(mktemp "$traefik_dir/dynamic.yml.tmp.XXXXXX")
+  awk '
+    /^    [^ ].*:$/ { in_target = ($0 == "    traefik-dashboard-redirect:") }
+    in_target && /^      tls:$/ { skip_resolver = 1; next }
+    skip_resolver && /^        certResolver: letsencrypt$/ { skip_resolver = 0; next }
+    { print }
   ' "$dynamic" >"$dynamic_tmp"
   mv "$dynamic_tmp" "$dynamic"
 fi

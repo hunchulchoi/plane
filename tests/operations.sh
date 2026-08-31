@@ -50,5 +50,12 @@ done
 # Plane must retain its publicly trusted ACME certificate. A private S3 bucket
 # correctly returns 403 for an anonymous bucket request.
 grep -q 'retry_url https://plane.devfor.link/' "$repo_root/scripts/verify.sh"
-! grep -q 'retry_url --insecure https://plane.devfor.link/' "$repo_root/scripts/verify.sh"
+if grep -q 'retry_url --insecure https://plane.devfor.link/' "$repo_root/scripts/verify.sh"; then
+  printf 'Plane verification must enforce its public ACME certificate\n' >&2
+  exit 1
+fi
 grep -q '200|403' "$repo_root/scripts/verify.sh"
+if grep -q 's3_status=$(curl --insecure' "$repo_root/scripts/verify.sh"; then
+  printf 'S3 verification must enforce its public ACME certificate\n' >&2
+  exit 1
+fi

@@ -42,7 +42,7 @@ retry_url http://127.0.0.1:8220/api/instances/
 
 if getent ahosts plane.devfor.link >/dev/null 2>&1; then
   retry_url https://plane.devfor.link/
-  s3_status=$(curl --insecure --silent --show-error --output /dev/null --write-out '%{http_code}' https://s3.devfor.link/plane/)
+  s3_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://s3.devfor.link/plane/)
   [[ $s3_status =~ ^(200|403)$ ]] || { printf 'Unexpected S3 status: %s\n' "$s3_status" >&2; exit 1; }
 else
   printf 'Public DNS check skipped: plane.devfor.link does not resolve\n'
