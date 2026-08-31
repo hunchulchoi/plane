@@ -1,0 +1,15 @@
+routers:
+  plane-router:
+    rule: "Host(`plane.devfor.link`)"
+    entryPoints:
+      - web
+      - websecure
+    middlewares:
+      - crowdsec-bouncer
+      - global-ratelimit
+    service: plane-service
+services:
+  plane-service:
+    loadBalancer:
+      servers:
+        - url: "http://host.docker.internal:8220"
