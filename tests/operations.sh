@@ -47,7 +47,8 @@ done
 # Deploy runs the migrator with --rm, so verification must not require its
 # container to remain after a successful migration.
 ! grep -q 'ps -aq migrator' "$repo_root/scripts/verify.sh"
-# The shared Traefik currently uses its generated certificate, and a private
-# S3 bucket correctly returns 403 for an anonymous bucket request.
-grep -q 'retry_url --insecure https://plane.devfor.link/' "$repo_root/scripts/verify.sh"
+# Plane must retain its publicly trusted ACME certificate. A private S3 bucket
+# correctly returns 403 for an anonymous bucket request.
+grep -q 'retry_url https://plane.devfor.link/' "$repo_root/scripts/verify.sh"
+! grep -q 'retry_url --insecure https://plane.devfor.link/' "$repo_root/scripts/verify.sh"
 grep -q '200|403' "$repo_root/scripts/verify.sh"

@@ -143,6 +143,13 @@ are intentionally unconfigured.
 ./scripts/verify.sh
 ```
 
+The shared Traefik obtains the `plane.devfor.link` certificate through a
+Cloudflare DNS-01 challenge. Store a zone-scoped `CF_DNS_API_TOKEN` in the
+Traefik sibling directory's mode-`0600` `.env`, then apply the idempotent
+configuration with `./scripts/configure-traefik-acme.sh` before recreating
+Traefik. The ACME account and certificates persist in
+`../../traefik/letsencrypt/acme.json`.
+
 Generated credentials live only in ignored, mode-`0600` `.env`. Roll back by
 checking out a known custom-branch commit and rebuilding affected services;
 the provisioning scripts never delete shared resources.

@@ -41,8 +41,7 @@ retry_url http://127.0.0.1:8220/
 retry_url http://127.0.0.1:8220/api/instances/
 
 if getent ahosts plane.devfor.link >/dev/null 2>&1; then
-  # The shared Traefik currently serves its generated self-signed certificate.
-  retry_url --insecure https://plane.devfor.link/
+  retry_url https://plane.devfor.link/
   s3_status=$(curl --insecure --silent --show-error --output /dev/null --write-out '%{http_code}' https://s3.devfor.link/plane/)
   [[ $s3_status =~ ^(200|403)$ ]] || { printf 'Unexpected S3 status: %s\n' "$s3_status" >&2; exit 1; }
 else
