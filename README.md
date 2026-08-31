@@ -124,6 +124,42 @@ See [CONTRIBUTING](./CONTRIBUTING.md)
   </p>
 </p>
 
+## Source-built deployment
+
+This branch builds Plane from the checked-out source and serves it at
+`https://plane.devfor.link`. It reuses the host's shared PostgreSQL and MinIO
+with Plane-specific credentials; Valkey and RabbitMQ remain isolated in the
+Plane Compose project.
+
+Prerequisites are Docker Compose v2, running containers named `postgres` and
+`minio`, their administrator environment files in the sibling configuration
+tree, and the existing Traefik deployment. SMTP and optional OAuth providers
+are intentionally unconfigured.
+
+```bash
+./scripts/deploy.sh
+./scripts/rebuild.sh web
+./scripts/rebuild.sh api worker beat-worker
+./scripts/verify.sh
+```
+
+Generated credentials live only in ignored, mode-`0600` `.env`. Roll back by
+checking out a known custom-branch commit and rebuilding affected services;
+the provisioning scripts never delete shared resources.
+
+Review release notes and migrations before incorporating a stable upstream
+release into a new customization branch:
+
+```bash
+git fetch upstream --tags
+git switch -c custom/vNEXT vNEXT
+git merge custom/v1.4.2
+git push -u origin custom/vNEXT
+```
+
+Plane is licensed under AGPL-3.0. Preserve its license and corresponding-source
+obligations when offering a modified instance over a network.
+
 ## 📝 Documentation
 
 Explore Plane's [product documentation](https://docs.plane.so/) and [developer documentation](https://developers.plane.so/) to learn about features, setup, and usage.
