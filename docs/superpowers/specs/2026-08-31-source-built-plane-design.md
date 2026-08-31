@@ -47,8 +47,9 @@ credentials are not copied into Plane configuration.
 
 The Plane `.env` contains only the dedicated runtime credentials and is ignored
 by Git. A committed `.env.example` documents every required value without real
-secrets. MinIO CORS permits `https://plane.devfor.link` for the methods and
-headers required by presigned uploads.
+secrets. MinIO Community does not support per-bucket CORS, so provisioning
+verifies that its global `api cors_allow_origin` is either `*` or explicitly
+includes `https://plane.devfor.link`. The existing shared MinIO uses `*`.
 
 SMTP and optional OAuth integrations remain disabled until their credentials
 are supplied. Initial instance administration is completed through Plane's

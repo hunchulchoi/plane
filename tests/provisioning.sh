@@ -38,7 +38,7 @@ dry_run=$(DRY_RUN=1 SHARED_CONFIG_ROOT="$tmp_dir/shared" ENV_FILE="$generated" \
 
 grep -q 'PostgreSQL role/database: plane' <<<"$dry_run"
 grep -q 'MinIO bucket/user/policy: plane' <<<"$dry_run"
-grep -q 'MinIO CORS origin: https://plane.devfor.link' <<<"$dry_run"
+grep -q 'MinIO global CORS compatibility: plane.devfor.link' <<<"$dry_run"
 ! grep -q 'shared-db-secret\|shared-minio-secret' <<<"$dry_run"
 
 fake_bin="$tmp_dir/bin"
@@ -62,6 +62,7 @@ if [[ ${1:-} == exec ]]; then
   exit 0
 fi
 if [[ ${1:-} == run ]]; then
+  joined=" $* "
   shift
   work_dir=
   while (($#)); do
@@ -71,9 +72,10 @@ if [[ ${1:-} == run ]]; then
     fi
     shift || true
   done
-  [[ -n $work_dir && -f $work_dir/cors.xml ]] || exit 97
-  grep -q '<CORSConfiguration>' "$work_dir/cors.xml" || exit 97
-  grep -q '<AllowedOrigin>https://plane.devfor.link</AllowedOrigin>' "$work_dir/cors.xml" || exit 97
+  [[ -n $work_dir && -f $work_dir/policy.json ]] || exit 97
+  [[ ! -e $work_dir/cors.xml ]] || exit 97
+  [[ $joined == *'mc admin config get shared api'* ]] || exit 97
+  [[ $joined != *'mc cors set'* ]] || exit 97
   exit 0
 fi
 exit 98

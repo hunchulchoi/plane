@@ -89,7 +89,7 @@ git commit -m "build: add source-built production compose"
 
 **Interfaces:**
 - Consumes: `../postgres/.env`, `../minio/.env`, and containers `postgres`, `minio`.
-- Produces: `.env`, PostgreSQL role/database `plane`, MinIO bucket/user/policy `plane`, and CORS for `https://plane.devfor.link`.
+- Produces: `.env`, PostgreSQL role/database `plane`, MinIO bucket/user/policy `plane`, and a compatibility check for global MinIO CORS.
 - Produces functions `read_env_value(file,key)`, `upsert_env(file,key,value)`, and `generate_secret(bytes)`.
 
 - [ ] **Step 1: Write failing helper/dry-run tests**
@@ -119,8 +119,9 @@ The provisioning script must verify Docker and both shared containers, then:
 - create/alter role `plane`, create database `plane` only if absent, and set its owner;
 - use an ephemeral `minio/mc` client to create bucket `plane`;
 - create `plane-bucket-policy` limited to `arn:aws:s3:::plane` and `arn:aws:s3:::plane/*`;
-- create/update user `plane`, attach the policy, and install CORS allowing `https://plane.devfor.link` with GET/POST/PUT/DELETE/HEAD;
-- clean temporary policy/CORS files with a trap;
+- create/update user `plane` and attach the policy;
+- verify the Community server's global `api cors_allow_origin` is `*` or includes `https://plane.devfor.link` (per-bucket CORS is an AIStor-only feature);
+- clean temporary policy files with a trap;
 - make `DRY_RUN=1` perform no Docker call and redact all secrets.
 
 - [ ] **Step 5: Verify and commit**
