@@ -1,0 +1,186 @@
+x-backend: &backend
+  image: plane-custom-backend:local
+  build:
+    context: ./apps/api
+    dockerfile: Dockerfile.api
+    args:
+      DOCKER_BUILDKIT: 1
+  env_file:
+    - ${PLANE_ENV_FILE:-.env}
+  environment: &backend-environment
+    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    AMQP_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}/${RABBITMQ_VHOST}
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  restart: unless-stopped
+
+services:
+  web:
+    image: plane-custom-web:local
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile.web
+      args:
+        DOCKER_BUILDKIT: 1
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+
+  admin:
+    image: plane-custom-admin:local
+    build:
+      context: .
+      dockerfile: ./apps/admin/Dockerfile.admin
+      args:
+        DOCKER_BUILDKIT: 1
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+
+  space:
+    image: plane-custom-space:local
+    build:
+      context: .
+      dockerfile: ./apps/space/Dockerfile.space
+      args:
+        DOCKER_BUILDKIT: 1
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+
+  live:
+    image: plane-custom-live:local
+    build:
+      context: .
+      dockerfile: ./apps/live/Dockerfile.live
+      args:
+        DOCKER_BUILDKIT: 1
+    env_file:
+      - ${PLANE_ENV_FILE:-.env}
+    environment:
+      API_BASE_URL: http://api:8000
+      WEB_BASE_URL: ${WEB_URL}
+      LIVE_BASE_URL: ${WEB_URL}
+      LIVE_BASE_PATH: /live
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+      plane-redis:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    command: ./bin/docker-entrypoint-api.sh
+    volumes:
+      - logs_api:/code/plane/logs
+    depends_on:
+      plane-redis:
+        condition: service_healthy
+      plane-mq:
+        condition: service_healthy
+
+  worker:
+    <<: *backend
+    command: ./bin/docker-entrypoint-worker.sh
+    volumes:
+      - logs_worker:/code/plane/logs
+    depends_on:
+      api:
+        condition: service_started
+      plane-redis:
+        condition: service_healthy
+      plane-mq:
+        condition: service_healthy
+
+  beat-worker:
+    <<: *backend
+    command: ./bin/docker-entrypoint-beat.sh
+    volumes:
+      - logs_beat_worker:/code/plane/logs
+    depends_on:
+      api:
+        condition: service_started
+      plane-redis:
+        condition: service_healthy
+      plane-mq:
+        condition: service_healthy
+
+  migrator:
+    <<: *backend
+    command: ./bin/docker-entrypoint-migrator.sh
+    restart: "no"
+    volumes:
+      - logs_migrator:/code/plane/logs
+    depends_on:
+      plane-redis:
+        condition: service_healthy
+      plane-mq:
+        condition: service_healthy
+
+  plane-redis:
+    image: valkey/valkey:7.2.11-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  plane-mq:
+    image: rabbitmq:3.13.6-management-alpine
+    env_file:
+      - ${PLANE_ENV_FILE:-.env}
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+    restart: unless-stopped
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  proxy:
+    image: plane-custom-proxy:local
+    build:
+      context: ./apps/proxy
+      dockerfile: Dockerfile.ce
+    environment:
+      FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
+      SITE_ADDRESS: :80
+      TRUSTED_PROXIES: 0.0.0.0/0
+    ports:
+      - 127.0.0.1:${PLANE_HTTP_PORT:-8220}:80
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+      admin:
+        condition: service_started
+      space:
+        condition: service_started
+      live:
+        condition: service_started
+      api:
+        condition: service_started
+
+volumes:
+  redisdata:
+  rabbitmq_data:
+  logs_api:
+  logs_worker:
+  logs_beat_worker:
+  logs_migrator:
