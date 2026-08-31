@@ -44,11 +44,12 @@ for container in postgres minio; do
   }
 done
 
-psql=(docker exec -e "PGPASSWORD=$postgres_password" postgres psql -v ON_ERROR_STOP=1 -U "$postgres_admin" -d postgres)
-"${psql[@]}" -c "SELECT 'CREATE ROLE plane LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'plane') \\gexec"
-"${psql[@]}" --set="plane_password=$plane_db_password" -c "SELECT format('ALTER ROLE plane WITH LOGIN PASSWORD %L', :'plane_password') \\gexec"
-"${psql[@]}" -c "SELECT 'CREATE DATABASE plane OWNER plane' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'plane') \\gexec"
-"${psql[@]}" -c 'ALTER DATABASE plane OWNER TO plane'
+psql=(docker exec -i -e "PGPASSWORD=$postgres_password" postgres psql -v ON_ERROR_STOP=1 -U "$postgres_admin" -d postgres --set="plane_password=$plane_db_password")
+printf '%s\n' \
+  "SELECT 'CREATE ROLE plane LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'plane') \\gexec" \
+  "SELECT format('ALTER ROLE plane WITH LOGIN PASSWORD %L', :'plane_password') \\gexec" \
+  "SELECT 'CREATE DATABASE plane OWNER plane' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'plane') \\gexec" \
+  'ALTER DATABASE plane OWNER TO plane;' | "${psql[@]}"
 
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT

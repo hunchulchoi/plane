@@ -40,3 +40,32 @@ grep -q 'PostgreSQL role/database: plane' <<<"$dry_run"
 grep -q 'MinIO bucket/user/policy: plane' <<<"$dry_run"
 grep -q 'MinIO CORS origin: https://plane.devfor.link' <<<"$dry_run"
 ! grep -q 'shared-db-secret\|shared-minio-secret' <<<"$dry_run"
+
+fake_bin="$tmp_dir/bin"
+mkdir -p "$fake_bin"
+cat >"$fake_bin/docker" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ${1:-} == inspect ]]; then
+  echo true
+  exit 0
+fi
+if [[ ${1:-} == exec ]]; then
+  for arg in "$@"; do
+    if [[ $arg == *'\gexec'* || $arg == *":'plane_password'"* ]]; then
+      echo 'psql client commands must be supplied on stdin' >&2
+      exit 99
+    fi
+  done
+  cat >/dev/null
+  exit 0
+fi
+if [[ ${1:-} == run ]]; then
+  exit 0
+fi
+exit 98
+SH
+chmod +x "$fake_bin/docker"
+
+PATH="$fake_bin:$PATH" SHARED_CONFIG_ROOT="$tmp_dir/shared" ENV_FILE="$generated" \
+  "$repo_root/scripts/provision-shared-services.sh" >/dev/null
