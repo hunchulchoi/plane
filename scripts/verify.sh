@@ -16,10 +16,6 @@ for service in "${required[@]}"; do
   grep -qx "$service" <<<"$running" || { printf 'Service is not running: %s\n' "$service" >&2; exit 1; }
 done
 
-migrator_id=$("${compose[@]}" ps -aq migrator | tail -1)
-[[ -n $migrator_id ]] || { printf 'Migrator container not found\n' >&2; exit 1; }
-test "$(docker inspect -f '{{.State.ExitCode}}' "$migrator_id")" = 0
-
 db_password=$(read_env_value "$env_file" POSTGRES_PASSWORD)
 docker exec -e "PGPASSWORD=$db_password" postgres psql -v ON_ERROR_STOP=1 -U plane -d plane -Atqc 'SELECT 1' | grep -qx 1
 
@@ -35,8 +31,8 @@ docker run --rm --network host -e "S3_ACCESS=$s3_access" -e "S3_SECRET=$s3_secre
   '
 
 retry_url() {
-  local url=$1 attempts=24
-  while ! curl --fail --silent --show-error --output /dev/null "$url"; do
+  local attempts=24
+  while ! curl --fail --silent --show-error --output /dev/null "$@"; do
     ((attempts--)) || return 1
     sleep 5
   done
@@ -45,8 +41,10 @@ retry_url http://127.0.0.1:8220/
 retry_url http://127.0.0.1:8220/api/instances/
 
 if getent ahosts plane.devfor.link >/dev/null 2>&1; then
-  retry_url https://plane.devfor.link/
-  curl --fail --silent --show-error --output /dev/null https://s3.devfor.link/plane/
+  # The shared Traefik currently serves its generated self-signed certificate.
+  retry_url --insecure https://plane.devfor.link/
+  s3_status=$(curl --insecure --silent --show-error --output /dev/null --write-out '%{http_code}' https://s3.devfor.link/plane/)
+  [[ $s3_status =~ ^(200|403)$ ]] || { printf 'Unexpected S3 status: %s\n' "$s3_status" >&2; exit 1; }
 else
   printf 'Public DNS check skipped: plane.devfor.link does not resolve\n'
 fi

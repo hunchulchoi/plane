@@ -26,8 +26,8 @@ for (const forbidden of ["plane-db", "plane-minio"]) {
 
 const proxyPorts = config.services.proxy.ports ?? [];
 if (!proxyPorts.some((port) =>
-  port.host_ip === "127.0.0.1" && Number(port.published) === 8220 && Number(port.target) === 80
-)) throw new Error("proxy must publish 127.0.0.1:8220 to container port 80");
+  port.host_ip === "0.0.0.0" && Number(port.published) === 8220 && Number(port.target) === 80
+)) throw new Error("proxy must publish 0.0.0.0:8220 so the Traefik container can reach it through host-gateway");
 
 for (const service of ["api", "worker", "beat-worker", "migrator"]) {
   const extraHosts = config.services[service].extra_hosts ?? {};

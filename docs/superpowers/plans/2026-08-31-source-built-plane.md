@@ -4,7 +4,7 @@
 
 **Goal:** Build and run Plane CE from `custom/v1.4.2` at `https://plane.devfor.link`, with isolated credentials on the shared PostgreSQL and MinIO services.
 
-**Architecture:** A custom Compose file builds all Plane application images from this checkout, runs Plane-specific Valkey and RabbitMQ, and reaches host-published PostgreSQL through `host.docker.internal`. Plane's Caddy proxy binds to `127.0.0.1:8220`; existing Traefik terminates TLS, while browser-visible object URLs use `https://s3.devfor.link`.
+**Architecture:** A custom Compose file builds all Plane application images from this checkout, runs Plane-specific Valkey and RabbitMQ, and reaches host-published PostgreSQL through `host.docker.internal`. Plane's Caddy proxy publishes port `8220` for the existing Traefik container to reach through `host.docker.internal`; browser-visible object URLs use `https://s3.devfor.link`.
 
 **Tech Stack:** Docker Compose v2, Plane v1.4.2, PostgreSQL 18, MinIO, Valkey 7.2, RabbitMQ 3.13, Caddy 2, Traefik 3.7, Bash
 
@@ -16,7 +16,7 @@
 - Run no PostgreSQL or MinIO service in the Plane project.
 - Create only the dedicated PostgreSQL role/database and MinIO bucket/user/policy named `plane`.
 - Store generated secrets in ignored, mode-0600 `.env`; commit only `.env.example`.
-- Publish Plane only at `127.0.0.1:8220` and route `plane.devfor.link` through existing Traefik.
+- Publish Plane at host port `8220` for the separate Traefik container and route `plane.devfor.link` through existing Traefik.
 - Use `https://s3.devfor.link` for presigned browser uploads.
 - Never delete unrelated shared resources; preserve AGPL-3.0 notices and obligations.
 
@@ -40,7 +40,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 test -f compose.custom.yaml
 ! grep -Eq '^  (plane-db|plane-minio):' compose.custom.yaml
-grep -q '127.0.0.1:${PLANE_HTTP_PORT:-8220}:80' compose.custom.yaml
+grep -q '0.0.0.0:${PLANE_HTTP_PORT:-8220}:80' compose.custom.yaml
 grep -q 'host.docker.internal:host-gateway' compose.custom.yaml
 services=$(docker compose --env-file .env.example -f compose.custom.yaml config --services)
 for name in web admin space live api worker beat-worker migrator plane-redis plane-mq proxy; do
@@ -66,7 +66,7 @@ Adapt upstream `docker-compose.yml`. Retain source build contexts and Dockerfile
 
 ```yaml
 ports:
-  - "127.0.0.1:${PLANE_HTTP_PORT:-8220}:80"
+  - "0.0.0.0:${PLANE_HTTP_PORT:-8220}:80"
 ```
 
 Use `restart: unless-stopped`, except migrator `restart: "no"`.
@@ -143,7 +143,7 @@ git commit -m "ops: provision shared Plane storage"
 - Installation-only modification: `../traefik/dynamic.yml`
 
 **Interfaces:**
-- Consumes: `127.0.0.1:8220` Plane proxy.
+- Consumes: host port `8220` Plane proxy through Docker host-gateway.
 - Produces: Traefik `plane-router` and `plane-service`.
 
 - [ ] **Step 1: Write and run the failing route test**
