@@ -58,9 +58,24 @@ chmod 700 "$tmp_dir"
 cat >"$tmp_dir/policy.json" <<'JSON'
 {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetBucketLocation","s3:ListBucket"],"Resource":["arn:aws:s3:::plane"]},{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::plane/*"]}]}
 JSON
-cat >"$tmp_dir/cors.json" <<'JSON'
-[{"AllowedHeaders":["*"],"AllowedMethods":["GET","POST","PUT","DELETE","HEAD"],"AllowedOrigins":["https://plane.devfor.link"],"ExposeHeaders":["ETag","x-amz-server-side-encryption","x-amz-request-id","x-amz-id-2"],"MaxAgeSeconds":3000}]
-JSON
+cat >"$tmp_dir/cors.xml" <<'XML'
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>https://plane.devfor.link</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>POST</AllowedMethod>
+    <AllowedMethod>PUT</AllowedMethod>
+    <AllowedMethod>DELETE</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+    <ExposeHeader>x-amz-server-side-encryption</ExposeHeader>
+    <ExposeHeader>x-amz-request-id</ExposeHeader>
+    <ExposeHeader>x-amz-id-2</ExposeHeader>
+    <MaxAgeSeconds>3000</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>
+XML
 
 docker run --rm --network host \
   -e "MINIO_ROOT_USER=$minio_root_user" \
@@ -74,7 +89,7 @@ docker run --rm --network host \
     mc admin policy create shared plane-bucket-policy /work/policy.json
     mc admin user add shared "$PLANE_ACCESS_KEY" "$PLANE_SECRET_KEY"
     mc admin policy attach shared plane-bucket-policy --user "$PLANE_ACCESS_KEY"
-    mc cors set shared/plane /work/cors.json
+    mc cors set shared/plane /work/cors.xml
   '
 
 printf '%s\n' 'Provisioned PostgreSQL role/database: plane' 'Provisioned MinIO bucket and scoped credentials: plane'
