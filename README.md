@@ -143,6 +143,23 @@ are intentionally unconfigured.
 ./scripts/verify.sh
 ```
 
+### Project attachment upload flow
+
+Project attachments, including PDFs and other supported documents, use a
+three-step presigned upload. Create the asset by posting metadata to the
+collection URL (without an asset UUID), submit every returned
+`upload_data.fields` value plus the file as multipart form data to
+`upload_data.url`, and only then mark the asset uploaded with PATCH:
+
+```text
+POST  /api/assets/v2/workspaces/{workspace}/projects/{project}/
+POST  {upload_data.url}  (multipart fields + file; no Plane API headers)
+PATCH /api/assets/v2/workspaces/{workspace}/projects/{project}/{asset_id}/
+```
+
+Do not POST to the final asset-detail URL. The local Plane CLI automates this
+flow with `plane assets upload` and `plane pages attach`.
+
 The shared Traefik obtains the `plane.devfor.link` certificate through a
 Cloudflare DNS-01 challenge. Store a zone-scoped `CF_DNS_API_TOKEN` in the
 Traefik sibling directory's mode-`0600` `.env`, then apply the idempotent

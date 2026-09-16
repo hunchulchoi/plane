@@ -8,6 +8,7 @@ from datetime import datetime
 from django.core.serializers.json import DjangoJSONEncoder
 
 # Django imports
+from django.conf import settings
 from django.db import connection
 from django.db.models import (
     Exists,
@@ -26,6 +27,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models.functions import Coalesce
 
 # Third party imports
+import requests
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -46,6 +48,8 @@ from plane.db.models import (
     UserRecentVisit,
 )
 from plane.utils.error_codes import ERROR_CODES
+from plane.utils.content_validator import validate_html_content
+from plane.utils.url import normalize_url_path
 
 # Local imports
 from ..base import BaseAPIView, BaseViewSet
@@ -545,6 +549,62 @@ class PagesDescriptionViewSet(BaseViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        payload = request.data.copy()
+        regenerate_binary = payload.pop("regenerate_binary", False)
+        if isinstance(regenerate_binary, list):
+            regenerate_binary = regenerate_binary[0] if regenerate_binary else False
+        regenerate_binary = regenerate_binary in (True, 1, "1", "true", "True")
+
+        if regenerate_binary:
+            description_html = payload.get("description_html")
+            if not description_html:
+                return Response(
+                    {"error": "description_html is required to regenerate editor data."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            is_valid, error_message, sanitized_html = validate_html_content(description_html)
+            if not is_valid:
+                return Response(
+                    {"error": error_message or "Invalid description HTML."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            payload["description_html"] = sanitized_html or description_html
+
+            if not settings.LIVE_URL:
+                return Response(
+                    {"error": "The document conversion service is not configured."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+            try:
+                conversion_response = requests.post(
+                    normalize_url_path(f"{settings.LIVE_URL}/convert-document/"),
+                    json={
+                        "description_html": payload["description_html"],
+                        "variant": "document",
+                    },
+                    timeout=10,
+                )
+                conversion_response.raise_for_status()
+                converted = conversion_response.json()
+            except (requests.RequestException, ValueError):
+                return Response(
+                    {"error": "Failed to regenerate editor data."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+            if not converted.get("description_binary") or not isinstance(
+                converted.get("description_json"), dict
+            ):
+                return Response(
+                    {"error": "The document conversion service returned invalid data."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+            payload["description_binary"] = converted["description_binary"]
+            payload["description_json"] = converted["description_json"]
+
         # Store the old description_html before saving (needed for both tasks)
         old_description_html = page.description_html
 
@@ -552,14 +612,14 @@ class PagesDescriptionViewSet(BaseViewSet):
         existing_instance = json.dumps({"description_html": old_description_html}, cls=DjangoJSONEncoder)
 
         # Use serializer for validation and update
-        serializer = PageBinaryUpdateSerializer(page, data=request.data, partial=True)
+        serializer = PageBinaryUpdateSerializer(page, data=payload, partial=True)
         if serializer.is_valid():
             serializer.save()
 
             # Capture the page transaction
-            if request.data.get("description_html"):
+            if payload.get("description_html"):
                 page_transaction.delay(
-                    new_description_html=request.data.get("description_html", "<p></p>"),
+                    new_description_html=payload.get("description_html", "<p></p>"),
                     old_description_html=old_description_html,
                     page_id=page_id,
                 )
@@ -570,7 +630,10 @@ class PagesDescriptionViewSet(BaseViewSet):
                 existing_instance=existing_instance,
                 user_id=request.user.id,
             )
-            return Response({"message": "Updated successfully"})
+            response_data = {"message": "Updated successfully"}
+            if regenerate_binary:
+                response_data["editor_data_regenerated"] = True
+            return Response(response_data)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

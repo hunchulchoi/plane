@@ -478,10 +478,14 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
 
         # Get the presigned URL
         storage = S3Storage(request=request)
+        asset_mime_type = (asset.attributes.get("type") or "").split(";", 1)[0].strip().lower()
+        disposition = (
+            "attachment" if asset_mime_type in settings.SCRIPT_CAPABLE_MIME_TYPES else "inline"
+        )
         # Generate a presigned URL to share an S3 object
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
-            disposition="attachment",
+            disposition=disposition,
             filename=asset.attributes.get("name"),
         )
         # Redirect to the signed URL
@@ -548,6 +552,20 @@ class AssetRestoreEndpoint(BaseAPIView):
 class ProjectAssetEndpoint(BaseAPIView):
     """This endpoint is used to upload cover images/logos etc for workspace, projects and users."""
 
+    IMAGE_MIME_TYPES = {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/jpg",
+        "image/gif",
+    }
+    IMAGE_ONLY_ENTITY_TYPES = {
+        FileAsset.EntityTypeContext.WORKSPACE_LOGO,
+        FileAsset.EntityTypeContext.PROJECT_COVER,
+        FileAsset.EntityTypeContext.USER_AVATAR,
+        FileAsset.EntityTypeContext.USER_COVER,
+    }
+
     def get_entity_id_field(self, entity_type, entity_id):
         if entity_type == FileAsset.EntityTypeContext.WORKSPACE_LOGO:
             return {"workspace_id": entity_id}
@@ -578,10 +596,25 @@ class ProjectAssetEndpoint(BaseAPIView):
         return {}
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
-    def post(self, request, slug, project_id):
+    def post(self, request, slug, project_id, pk=None):
+        if pk is not None:
+            return Response(
+                {
+                    "error": "POST is not allowed on an existing asset.",
+                    "status": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         name = sanitize_filename(request.data.get("name")) or "unnamed"
         type = request.data.get("type", "image/jpeg")
-        size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
+        try:
+            size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid file size.", "status": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         entity_type = request.data.get("entity_type", "")
         entity_identifier = request.data.get("entity_identifier")
 
@@ -592,25 +625,32 @@ class ProjectAssetEndpoint(BaseAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check if the file type is allowed
-        allowed_types = [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/jpg",
-            "image/gif",
-        ]
+        # Covers, avatars, and logos remain image-only. Editor attachments use
+        # Plane's shared attachment allowlist (documents, archives, media, etc.).
+        allowed_types = (
+            self.IMAGE_MIME_TYPES
+            if entity_type in self.IMAGE_ONLY_ENTITY_TYPES
+            else set(settings.ATTACHMENT_MIME_TYPES) | {"image/jpg"}
+        )
         if type not in allowed_types:
             return Response(
                 {
-                    "error": "Invalid file type. Only JPEG, PNG, WebP, JPG and GIF files are allowed.",
+                    "error": "Invalid file type.",
                     "status": False,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get the size limit
-        size_limit = min(settings.FILE_SIZE_LIMIT, size)
+        if size <= 0 or size > settings.FILE_SIZE_LIMIT:
+            return Response(
+                {
+                    "error": f"Invalid file size. Maximum allowed size is {settings.FILE_SIZE_LIMIT} bytes.",
+                    "status": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        size_limit = size
 
         # Get the workspace
         workspace = Workspace.objects.get(slug=slug)
@@ -685,10 +725,17 @@ class ProjectAssetEndpoint(BaseAPIView):
 
         # Get the presigned URL
         storage = S3Storage(request=request)
+        asset_mime_type = (asset.attributes.get("type") or "").split(";", 1)[0].strip().lower()
+        disposition = (
+            "inline"
+            if asset.entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION
+            and asset_mime_type in self.IMAGE_MIME_TYPES
+            else "attachment"
+        )
         # Generate a presigned URL to share an S3 object
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
-            disposition="attachment",
+            disposition=disposition,
             filename=asset.attributes.get("name"),
         )
         # Redirect to the signed URL
