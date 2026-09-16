@@ -900,7 +900,7 @@ def cmd_issues_create(args):
     if args.assignee:
         payload["assignees"] = [args.assignee]
     if args.label:
-        payload["labels"] = [args.label]
+        payload["labels"] = [_ensure_label(args.project, v) for v in args.label]
 
     data = api("POST", f"/workspaces/{WORKSPACE}/projects/{args.project}/work-items/", payload)
     print(green("✓ Work item created"))
@@ -923,7 +923,7 @@ def cmd_issues_update(args):
     if getattr(args, "assignee", None):
         payload["assignees"] = [args.assignee]
     if getattr(args, "label", None):
-        payload["labels"] = [args.label]
+        payload["labels"] = [_ensure_label(args.project, v) for v in args.label]
 
     if not payload:
         print(yellow("Nothing to update — pass at least one field."), file=sys.stderr)
@@ -1387,10 +1387,74 @@ def cmd_states_list(args):
     format_output(data, args.format)
 
 
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def _list_labels(project: str) -> List[Dict[str, Any]]:
+    data = api("GET", f"/workspaces/{WORKSPACE}/projects/{project}/labels/")
+    if isinstance(data, dict):
+        return data.get("results", [])
+    return data or []
+
+
+def _find_label_by_name(project: str, name: str) -> Optional[str]:
+    for label in _list_labels(project):
+        if str(label.get("name", "")).lower() == name.lower():
+            return label.get("id")
+    return None
+
+
+def _ensure_label(project: str, name_or_id: str) -> str:
+    """Resolve a label name to its ID, creating the label if it doesn't exist."""
+    if _UUID_RE.match(name_or_id):
+        return name_or_id
+    existing = _find_label_by_name(project, name_or_id)
+    if existing:
+        return existing
+    created = api(
+        "POST",
+        f"/workspaces/{WORKSPACE}/projects/{project}/labels/",
+        {"name": name_or_id},
+        fatal=False,
+    )
+    if isinstance(created, dict) and created.get("id"):
+        print(dim(f"  created label '{name_or_id}'"), file=sys.stderr)
+        return created["id"]
+    # duplicate-name conflict or other error — try resolving again
+    existing = _find_label_by_name(project, name_or_id)
+    if existing:
+        return existing
+    print(red(f"Could not resolve or create label: {name_or_id}"), file=sys.stderr)
+    sys.exit(1)
+
+
 def cmd_labels_list(args):
     """List labels in a project."""
     _validate_id(args.project, "project ID")
     data = api("GET", f"/workspaces/{WORKSPACE}/projects/{args.project}/labels/")
+    format_output(data, args.format)
+
+
+def cmd_labels_create(args):
+    """Create a label in a project."""
+    _validate_id(args.project, "project ID")
+    payload = {"name": args.name}
+    if getattr(args, "color", None):
+        payload["color"] = args.color
+    if getattr(args, "description", None):
+        payload["description"] = args.description
+    data = api(
+        "POST",
+        f"/workspaces/{WORKSPACE}/projects/{args.project}/labels/",
+        payload,
+        fatal=False,
+    )
+    if isinstance(data, dict) and data.get("_http_error"):
+        print(red(f"API Error {data['_http_error']}:") + f" {data.get('error', '')}", file=sys.stderr)
+        sys.exit(1)
+    print(green("✓ Label created"))
     format_output(data, args.format)
 
 
@@ -1481,7 +1545,11 @@ def main():
     i_create.add_argument("--priority", choices=["urgent", "high", "medium", "low", "none"], help="Priority level")
     i_create.add_argument("--state", help="State ID")
     i_create.add_argument("--assignee", help="Assignee user ID")
-    i_create.add_argument("--label", help="Label ID")
+    i_create.add_argument(
+        "--label",
+        action="append",
+        help="Label name or ID (repeatable); missing names are created",
+    )
     i_create.set_defaults(func=cmd_issues_create)
 
     i_update = iss_sub.add_parser("update", help="Update an existing work item")
@@ -1492,7 +1560,11 @@ def main():
     i_update.add_argument("--priority", choices=["urgent", "high", "medium", "low", "none"], help="Priority")
     i_update.add_argument("--state", help="State ID")
     i_update.add_argument("--assignee", help="Assignee user ID")
-    i_update.add_argument("--label", help="Label ID")
+    i_update.add_argument(
+        "--label",
+        action="append",
+        help="Label name or ID (repeatable); missing names are created",
+    )
     i_update.set_defaults(func=cmd_issues_update)
 
     i_assign = iss_sub.add_parser("assign", help="Assign a work item to members")
@@ -1697,9 +1769,21 @@ def main():
     states.set_defaults(func=cmd_states_list)
 
     # ── labels ──────────────────────────────────────────────────────────
-    labels = subparsers.add_parser("labels", help="List labels in a project")
-    labels.add_argument("--project", "-p", required=True, help="Project ID")
+    labels = subparsers.add_parser("labels", help="List or create labels in a project")
+    labels.add_argument("--project", "-p", help="Project ID")
     labels.set_defaults(func=cmd_labels_list)
+    labels_sub = labels.add_subparsers(dest="labels_command")
+
+    l_list = labels_sub.add_parser("list", help="List labels")
+    l_list.add_argument("--project", "-p", required=True, help="Project ID")
+    l_list.set_defaults(func=cmd_labels_list)
+
+    l_create = labels_sub.add_parser("create", help="Create a label")
+    l_create.add_argument("--project", "-p", required=True, help="Project ID")
+    l_create.add_argument("--name", required=True, help="Label name")
+    l_create.add_argument("--color", help="Label color (hex, e.g. #eb5757)")
+    l_create.add_argument("--description", help="Label description")
+    l_create.set_defaults(func=cmd_labels_create)
 
     # ── parse & dispatch ────────────────────────────────────────────────
     args = parser.parse_args()

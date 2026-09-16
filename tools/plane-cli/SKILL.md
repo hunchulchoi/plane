@@ -82,6 +82,8 @@ plane issues get -p PROJECT_ID ISSUE_ID
 # Create
 plane issues create -p PROJECT_ID --name "Fix login bug" --priority high
 plane issues create -p PROJECT_ID --name "Feature" --assignee USER_ID --label LABEL_ID
+# --label also accepts names (repeatable); unknown names are created automatically
+plane issues create -p PROJECT_ID --name "Feature" --label bug --label frontend
 
 # Update
 plane issues update -p PROJECT_ID ISSUE_ID --state STATE_ID --priority medium
@@ -186,6 +188,7 @@ plane views delete -p PROJECT_ID VIEW_ID                 # Delete a custom view
 ```bash
 plane states -p PROJECT_ID    # List workflow states (useful for getting state IDs)
 plane labels -p PROJECT_ID    # List labels (useful for getting label IDs)
+plane labels create -p PROJECT_ID --name "bug" --color "#eb5757"  # Create a label
 ```
 
 ## Output Formats
