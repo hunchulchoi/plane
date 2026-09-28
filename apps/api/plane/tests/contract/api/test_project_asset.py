@@ -31,7 +31,7 @@ def asset_url(workspace, project):
 @pytest.mark.django_db
 class TestProjectAttachmentAssetAPI:
     def test_page_document_upload_and_confirmation(self, api_key_client, workspace, attachment_project, project_page):
-        with mock.patch("plane.api.views.project_asset.S3Storage") as storage:
+        with mock.patch("plane.api.views.project_asset.S3Storage", autospec=True) as storage:
             storage.return_value.generate_presigned_post.return_value = {
                 "url": "https://storage.example/upload",
                 "fields": {},

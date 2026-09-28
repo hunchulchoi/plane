@@ -87,7 +87,7 @@ class ProjectAttachmentAssetEndpoint(BaseAPIView):
             **{f"{self.entity_fields[entity_type]}_id": entity_id},
         )
         asset.save(created_by_id=request.user.id)
-        storage = S3Storage(request=request, is_server=True)
+        storage = S3Storage(request=request)
         upload_data = storage.generate_presigned_post(object_name=asset_key, file_type=mime_type, file_size=size)
         return Response(
             {"upload_data": upload_data, "asset_id": str(asset.id), "asset_url": asset.asset_url},
