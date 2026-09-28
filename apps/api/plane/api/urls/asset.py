@@ -9,6 +9,7 @@ from plane.api.views import (
     UserServerAssetEndpoint,
     GenericAssetEndpoint,
 )
+from plane.api.views.project_asset import ProjectAttachmentAssetEndpoint
 
 urlpatterns = [
     path(
@@ -40,5 +41,15 @@ urlpatterns = [
         "workspaces/<str:slug>/assets/<uuid:asset_id>/",
         GenericAssetEndpoint.as_view(http_method_names=["get", "patch"]),
         name="generic-asset-detail",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/assets/",
+        ProjectAttachmentAssetEndpoint.as_view(http_method_names=["post"]),
+        name="project-attachment-asset",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/assets/<uuid:asset_id>/",
+        ProjectAttachmentAssetEndpoint.as_view(http_method_names=["patch"]),
+        name="project-attachment-asset-detail",
     ),
 ]
