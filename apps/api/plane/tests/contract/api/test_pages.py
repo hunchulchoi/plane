@@ -72,6 +72,18 @@ class TestProjectPageAPI:
         response = api_key_client.post(pages_url(workspace, page_project), {"name": "Denied"}, format="json")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_public_api_rejects_editor_relations_and_audit_fields(
+        self, api_key_client, workspace, page_project, create_user
+    ):
+        response = api_key_client.post(
+            pages_url(workspace, page_project),
+            {"name": "Invalid", "parent": str(create_user.id), "created_by": str(create_user.id)},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["fields"] == ["created_by", "parent"]
+        assert not Page.objects.filter(name="Invalid").exists()
+
     def test_page_from_other_project_is_not_accessible(self, api_key_client, workspace, page_project, create_user):
         other_project = Project.objects.create(name="Other Project", identifier="OTH", workspace=workspace)
         ProjectMember.objects.create(project=other_project, workspace=workspace, member=create_user, role=20)
