@@ -84,6 +84,49 @@ class TestProjectPageAPI:
         assert response.data["fields"] == ["created_by", "parent"]
         assert not Page.objects.filter(name="Invalid").exists()
 
+    def test_description_html_update_invalidates_binary(self, api_key_client, workspace, page_project):
+        url = pages_url(workspace, page_project)
+        with patch("plane.app.views.page.base.page_transaction.delay"):
+            created = api_key_client.post(
+                url, {"name": "Doc", "description_html": "<p>v1</p>"}, format="json"
+            )
+        page_id = created.data["id"]
+        page = Page.objects.get(pk=page_id)
+        page.description_binary = b"\x00\x01stale"
+        page.description_json = {"content": [{"type": "paragraph"}]}
+        page.save()
+
+        with patch("plane.app.views.page.base.page_transaction.delay"):
+            updated = api_key_client.patch(
+                f"{url}{page_id}/", {"description_html": "<p>v2</p>"}, format="json"
+            )
+        assert updated.status_code == status.HTTP_200_OK, updated.data
+        page.refresh_from_db()
+        assert page.description_binary is None
+        assert page.description_json == {}
+
+        # Re-sending identical content must not invalidate the binary again
+        page.description_binary = b"\x00\x01fresh"
+        page.save()
+        with patch("plane.app.views.page.base.page_transaction.delay"):
+            api_key_client.patch(f"{url}{page_id}/", {"description_html": "<p>v2</p>"}, format="json")
+        page.refresh_from_db()
+        assert page.description_binary is not None
+
+    def test_metadata_update_preserves_binary(self, api_key_client, workspace, page_project):
+        url = pages_url(workspace, page_project)
+        with patch("plane.app.views.page.base.page_transaction.delay"):
+            created = api_key_client.post(url, {"name": "Doc", "description_html": "<p>v1</p>"}, format="json")
+        page = Page.objects.get(pk=created.data["id"])
+        page.description_binary = b"\x00\x01binary"
+        page.save()
+
+        updated = api_key_client.patch(f"{url}{page.id}/", {"name": "Renamed"}, format="json")
+        assert updated.status_code == status.HTTP_200_OK, updated.data
+        page.refresh_from_db()
+        assert page.description_binary is not None
+        assert page.name == "Renamed"
+
     def test_page_from_other_project_is_not_accessible(self, api_key_client, workspace, page_project, create_user):
         other_project = Project.objects.create(name="Other Project", identifier="OTH", workspace=workspace)
         ProjectMember.objects.create(project=other_project, workspace=workspace, member=create_user, role=20)

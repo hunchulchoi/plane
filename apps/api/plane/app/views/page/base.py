@@ -182,6 +182,13 @@ class PageViewSet(BaseViewSet):
             serializer = PageDetailSerializer(page, data=request.data, partial=True)
             page_description = page.description_html
             if serializer.is_valid():
+                # Content written outside the collaborative editor leaves the stored
+                # Yjs document stale; clear it so the next editor load regenerates it
+                # from the new HTML.
+                new_description_html = serializer.validated_data.get("description_html")
+                if new_description_html is not None and new_description_html != page_description:
+                    page.description_binary = None
+                    page.description_json = {}
                 serializer.save()
                 # capture the page transaction
                 if request.data.get("description_html"):
