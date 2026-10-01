@@ -1,6 +1,7 @@
 # Copyright (c) 2023-present Plane Software, Inc. and contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 
+import json
 from unittest.mock import patch
 
 import pytest
@@ -96,7 +97,10 @@ class TestProjectPageAPI:
         page.description_json = {"content": [{"type": "paragraph"}]}
         page.save()
 
-        with patch("plane.app.views.page.base.page_transaction.delay"):
+        with (
+            patch("plane.app.views.page.base.page_transaction.delay"),
+            patch("plane.app.views.page.base.redis_instance") as mock_redis,
+        ):
             updated = api_key_client.patch(
                 f"{url}{page_id}/", {"description_html": "<p>v2</p>"}, format="json"
             )
@@ -105,13 +109,24 @@ class TestProjectPageAPI:
         assert page.description_binary is None
         assert page.description_json == {}
 
+        # Open editor sessions are notified so they can reload the document
+        mock_redis.return_value.publish.assert_called_once()
+        channel, payload = mock_redis.return_value.publish.call_args[0]
+        assert channel == "hocuspocus:admin"
+        assert json.loads(payload)["command"] == "restart_document"
+        assert json.loads(payload)["docId"] == str(page_id)
+
         # Re-sending identical content must not invalidate the binary again
         page.description_binary = b"\x00\x01fresh"
         page.save()
-        with patch("plane.app.views.page.base.page_transaction.delay"):
+        with (
+            patch("plane.app.views.page.base.page_transaction.delay"),
+            patch("plane.app.views.page.base.redis_instance") as mock_redis,
+        ):
             api_key_client.patch(f"{url}{page_id}/", {"description_html": "<p>v2</p>"}, format="json")
         page.refresh_from_db()
         assert page.description_binary is not None
+        mock_redis.return_value.publish.assert_not_called()
 
     def test_metadata_update_preserves_binary(self, api_key_client, workspace, page_project):
         url = pages_url(workspace, page_project)

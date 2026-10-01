@@ -8,6 +8,7 @@ import { Database } from "./database";
 import { ForceCloseHandler } from "./force-close-handler";
 import { Logger } from "./logger";
 import { Redis } from "./redis";
+import { RestartDocumentHandler } from "./restart-document-handler";
 import { TitleSyncExtension } from "./title-sync";
 
 export const getExtensions = () => [
@@ -16,4 +17,5 @@ export const getExtensions = () => [
   new Redis(),
   new TitleSyncExtension(),
   new ForceCloseHandler(), // Must be after Redis to receive broadcasts
+  new RestartDocumentHandler(), // Must be after Redis to receive broadcasts
 ];

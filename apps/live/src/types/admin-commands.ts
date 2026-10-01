@@ -89,9 +89,21 @@ export interface HealthCheckCommandData {
 }
 
 /**
+ * Restart document command data structure - notifies connected clients that
+ * the document content was changed outside the collaborative session
+ * (e.g. via the API) and should be reloaded.
+ */
+export interface RestartDocumentCommandData {
+  command: AdminCommand.RESTART_DOCUMENT;
+  docId: string;
+  originServer: string;
+  timestamp?: string;
+}
+
+/**
  * Union type for all admin commands
  */
-export type AdminCommandData = ForceCloseCommandData | HealthCheckCommandData;
+export type AdminCommandData = ForceCloseCommandData | HealthCheckCommandData | RestartDocumentCommandData;
 
 /**
  * Client force close message structure (sent to clients via sendStateless)
@@ -105,6 +117,15 @@ export interface ClientForceCloseMessage {
 }
 
 /**
+ * Client document update message structure (sent to clients via sendStateless)
+ */
+export interface ClientDocumentUpdateMessage {
+  type: "external_update";
+  docId: string;
+  timestamp?: string;
+}
+
+/**
  * Admin command handler function type
  */
 export type AdminCommandHandler<T extends AdminCommandData = AdminCommandData> = (data: T) => Promise<void> | void;
@@ -114,6 +135,13 @@ export type AdminCommandHandler<T extends AdminCommandData = AdminCommandData> =
  */
 export function isForceCloseCommand(data: AdminCommandData): data is ForceCloseCommandData {
   return data.command === AdminCommand.FORCE_CLOSE;
+}
+
+/**
+ * Type guard to check if data is a RestartDocumentCommandData
+ */
+export function isRestartDocumentCommand(data: AdminCommandData): data is RestartDocumentCommandData {
+  return data.command === AdminCommand.RESTART_DOCUMENT;
 }
 
 /**
