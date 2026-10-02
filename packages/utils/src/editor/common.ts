@@ -19,6 +19,9 @@ type TEditorSrcArgs = {
  */
 export const getEditorAssetSrc = (args: TEditorSrcArgs): string | undefined => {
   const { assetId, projectId, workspaceSlug } = args;
+  if (!assetId) return undefined;
+  // Imported HTML can contain a file path instead of a bare asset ID.
+  if (assetId.startsWith("/") || assetId.startsWith("http")) return getFileURL(assetId);
   let url: string | undefined = "";
   if (projectId) {
     url = getFileURL(`/api/assets/v2/workspaces/${workspaceSlug}/projects/${projectId}/${assetId}/`);
@@ -34,6 +37,16 @@ export const getEditorAssetSrc = (args: TEditorSrcArgs): string | undefined => {
  */
 export const getEditorAssetDownloadSrc = (args: TEditorSrcArgs): string | undefined => {
   const { assetId, projectId, workspaceSlug } = args;
+  if (!assetId) return undefined;
+  if (assetId.startsWith("http")) return assetId;
+  if (assetId.startsWith("/")) {
+    // Preserve the stored workspace/project scope when resolving an API path.
+    const downloadPath = assetId.replace(
+      /^(\/api\/assets\/v2\/workspaces\/[^/]+\/(?:projects\/[^/]+\/)?)(?!download\/)([^/?#]+)\/?(?=[?#]|$)/,
+      "$1download/$2/"
+    );
+    return getFileURL(downloadPath);
+  }
   let url: string | undefined = "";
   if (projectId) {
     url = getFileURL(`/api/assets/v2/workspaces/${workspaceSlug}/projects/${projectId}/download/${assetId}/`);
