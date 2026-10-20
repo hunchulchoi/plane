@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { API_BASE_URL } from "../../../../packages/constants/src/endpoints";
-import { getEditorAssetDownloadSrc, getEditorAssetSrc } from "../../../../packages/utils/src/editor/common";
+import { API_BASE_URL } from "@plane/constants";
+import { getEditorAssetDownloadSrc, getEditorAssetSrc } from "@plane/utils";
 
 const origin = API_BASE_URL;
 const workspaceSlug = "zodiac";

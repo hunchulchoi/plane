@@ -64,6 +64,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@plane/constants": "workspace:*",
     "@plane/typescript-config": "workspace:*",
     "@types/compression": "catalog:",
     "@types/cors": "catalog:",
