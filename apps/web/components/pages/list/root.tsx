@@ -5,6 +5,8 @@
  */
 
 import { observer } from "mobx-react";
+import { useSearchParams } from "next/navigation";
+import { useTranslation } from "@plane/i18n";
 // types
 import type { TPageNavigationTabs } from "@plane/types";
 // components
@@ -23,14 +25,21 @@ type TPagesListRoot = {
 export const PagesListRoot = observer(function PagesListRoot(props: TPagesListRoot) {
   const { pageType, storeType } = props;
   // store hooks
-  const { getCurrentProjectFilteredPageIdsByTab } = usePageStore(storeType);
+  const { getCurrentProjectFilteredPageIdsByTab, getPageById } = usePageStore(storeType);
+  const { t } = useTranslation();
+  const folderId = useSearchParams().get("folder");
   // derived values
   const filteredPageIds = getCurrentProjectFilteredPageIdsByTab(pageType);
+  const visiblePageIds = folderId
+    ? filteredPageIds?.filter((id) => getPageById(id)?.folder === folderId)
+    : filteredPageIds;
 
-  if (!filteredPageIds) return <></>;
+  if (!visiblePageIds) return <></>;
+  if (folderId && visiblePageIds.length === 0)
+    return <p className="p-6 text-13 text-tertiary">{t("page_folders.empty")}</p>;
   return (
     <ListLayout>
-      {filteredPageIds.map((pageId) => (
+      {visiblePageIds.map((pageId) => (
         <PageListBlock key={pageId} pageId={pageId} storeType={storeType} />
       ))}
     </ListLayout>

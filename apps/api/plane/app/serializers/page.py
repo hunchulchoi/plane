@@ -14,12 +14,22 @@ from plane.utils.content_validator import (
 )
 from plane.db.models import (
     Page,
+    PageFolder,
     PageLabel,
     Label,
     ProjectPage,
     Project,
     PageVersion,
 )
+
+
+class PageFolderSerializer(BaseSerializer):
+    name = serializers.CharField(max_length=255, trim_whitespace=True)
+
+    class Meta:
+        model = PageFolder
+        fields = ["id", "name", "project", "workspace"]
+        read_only_fields = ["project", "workspace"]
 
 
 class PageSerializer(BaseSerializer):
@@ -43,6 +53,7 @@ class PageSerializer(BaseSerializer):
             "color",
             "labels",
             "parent",
+            "folder",
             "is_favorite",
             "is_locked",
             "archived_at",
@@ -57,6 +68,14 @@ class PageSerializer(BaseSerializer):
             "project_ids",
         ]
         read_only_fields = ["workspace", "owned_by"]
+
+    def validate_folder(self, folder):
+        if folder is None:
+            return None
+        project_id = self.context.get("project_id")
+        if not project_id or str(folder.project_id) != str(project_id) or folder.deleted_at:
+            raise serializers.ValidationError("Folder must belong to this project.")
+        return folder
 
     def create(self, validated_data):
         labels = validated_data.pop("labels", None)

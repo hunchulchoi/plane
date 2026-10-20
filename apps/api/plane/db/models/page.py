@@ -20,6 +20,16 @@ def get_view_props():
     return {"full_width": False}
 
 
+class PageFolder(BaseModel):
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="page_folders")
+    project = models.ForeignKey("db.Project", on_delete=models.CASCADE, related_name="page_folders")
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "page_folders"
+        ordering = ("name", "id")
+
+
 class Page(BaseModel):
     PRIVATE_ACCESS = 1
     PUBLIC_ACCESS = 0
@@ -28,6 +38,7 @@ class Page(BaseModel):
     ACCESS_CHOICES = ((PRIVATE_ACCESS, "Private"), (PUBLIC_ACCESS, "Public"))
 
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="pages")
+    folder = models.ForeignKey("db.PageFolder", on_delete=models.SET_NULL, null=True, blank=True, related_name="pages")
     name = models.TextField(blank=True)
     description_json = models.JSONField(default=dict, blank=True)
     description_binary = models.BinaryField(null=True)

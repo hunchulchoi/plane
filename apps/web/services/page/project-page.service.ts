@@ -6,7 +6,7 @@
 
 // types
 import { API_BASE_URL } from "@plane/constants";
-import type { TDocumentPayload, TPage } from "@plane/types";
+import type { TDocumentPayload, TPage, TPageFolder } from "@plane/types";
 // helpers
 // services
 import { APIService } from "@/services/api.service";
@@ -27,6 +27,28 @@ export class ProjectPageService extends APIService {
       .catch((error) => {
         throw error?.response?.data;
       });
+  }
+
+  async fetchFolders(workspaceSlug: string, projectId: string): Promise<TPageFolder[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/page-folders/`).then(
+      (response) => response.data
+    );
+  }
+
+  async createFolder(workspaceSlug: string, projectId: string, name: string): Promise<TPageFolder> {
+    return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/page-folders/`, { name }).then(
+      (response) => response.data
+    );
+  }
+
+  async renameFolder(workspaceSlug: string, projectId: string, folderId: string, name: string): Promise<TPageFolder> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/page-folders/${folderId}/`, {
+      name,
+    }).then((response) => response.data);
+  }
+
+  async removeFolder(workspaceSlug: string, projectId: string, folderId: string): Promise<void> {
+    await this.delete(`/api/workspaces/${workspaceSlug}/projects/${projectId}/page-folders/${folderId}/`);
   }
 
   async fetchById(workspaceSlug: string, projectId: string, pageId: string, trackVisit: boolean): Promise<TPage> {

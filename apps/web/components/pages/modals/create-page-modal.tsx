@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 // constants
 import type { EPageAccess } from "@plane/constants";
 import type { TPage } from "@plane/types";
@@ -48,6 +49,7 @@ export function CreatePageModal(props: Props) {
   const router = useAppRouter();
   // store hooks
   const { createPage } = usePageStore(storeType);
+  const folder = useSearchParams().get("folder");
   const handlePageFormData = <T extends keyof TPage>(key: T, value: TPage[T]) =>
     setPageFormData((prev) => ({ ...prev, [key]: value }));
 
@@ -65,7 +67,7 @@ export function CreatePageModal(props: Props) {
     if (!workspaceSlug || !projectId) return;
 
     try {
-      const pageData = await createPage(pageFormData);
+      const pageData = await createPage({ ...pageFormData, folder: folder || null });
       if (pageData) {
         handleStateClear();
         if (redirectionEnabled) router.push(`/${workspaceSlug}/projects/${projectId}/pages/${pageData.id}`);

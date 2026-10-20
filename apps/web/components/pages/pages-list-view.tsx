@@ -13,6 +13,7 @@ import { usePageStore } from "@/hooks/store";
 // local imports
 import { PagesListHeaderRoot } from "./header";
 import { PagesListMainContent } from "./pages-list-main-content";
+import { PageFolderNavigation } from "./folders/navigation";
 
 type TPageView = {
   children: React.ReactNode;
@@ -44,9 +45,14 @@ export const PagesListView = observer(function PagesListView(props: TPageView) {
           workspaceSlug={workspaceSlug}
         />
       )}
-      <PagesListMainContent pageType={pageType} storeType={storeType}>
-        {children}
-      </PagesListMainContent>
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <PageFolderNavigation />
+        <div className="min-h-0 min-w-0 flex-1">
+          <PagesListMainContent pageType={pageType} storeType={storeType}>
+            {children}
+          </PagesListMainContent>
+        </div>
+      </div>
     </div>
   );
 });

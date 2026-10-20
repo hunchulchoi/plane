@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 // plane imports
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { EUserPermissionsLevel, EPageAccess } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { EmptyStateDetailed } from "@plane/blocks/empty-state";
@@ -42,6 +42,7 @@ export const PagesListMainContent = observer(function PagesListMainContent(props
   // router
   const router = useRouter();
   const { workspaceSlug } = useParams();
+  const folder = useSearchParams().get("folder");
   // derived values
   const pageIds = getCurrentProjectPageIdsByTab(pageType);
   const filteredPageIds = getCurrentProjectFilteredPageIdsByTab(pageType);
@@ -55,6 +56,7 @@ export const PagesListMainContent = observer(function PagesListMainContent(props
     setIsCreatingPage(true);
 
     const payload: Partial<TPage> = {
+      folder: folder || null,
       access: pageType === "private" ? EPageAccess.PRIVATE : EPageAccess.PUBLIC,
     };
 

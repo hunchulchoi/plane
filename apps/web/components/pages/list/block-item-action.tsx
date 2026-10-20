@@ -20,6 +20,7 @@ import type { EPageStoreType } from "@/hooks/store";
 import type { TPageInstance } from "@/store/pages/base-page";
 // local imports
 import { PageActions } from "../dropdowns";
+import { PageFolderSelect } from "../folders/page-folder-select";
 
 type Props = {
   page: TPageInstance;
@@ -41,6 +42,7 @@ export const BlockItemAction = observer(function BlockItemAction(props: Props) {
 
   return (
     <>
+      <PageFolderSelect page={page} />
       {/* page details */}
       <div className="cursor-default">
         <Tooltip label={`Owned by: ${ownerDetails?.display_name ?? ""}`} layout="stacked">

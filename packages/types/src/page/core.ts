@@ -17,6 +17,7 @@ export type TPage = {
   description_json: object | undefined;
   description_html: string | undefined;
   id: string | undefined;
+  folder?: string | null;
   is_favorite: boolean;
   is_locked: boolean;
   label_ids: string[] | undefined;
@@ -29,6 +30,13 @@ export type TPage = {
   logo_props: TLogoProps | undefined;
   deleted_at: Date | undefined;
 } & TPageExtended;
+
+export type TPageFolder = {
+  id: string;
+  name: string;
+  project: string;
+  workspace: string;
+};
 
 // page filters
 export type TPageNavigationTabs = "public" | "private" | "archived";

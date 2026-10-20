@@ -63,6 +63,7 @@ export interface IProjectPageStore {
   ) => Promise<TPage | undefined>;
   createPage: (pageData: Partial<TPage>) => Promise<TPage | undefined>;
   removePage: (params: { pageId: string; shouldSync?: boolean }) => Promise<void>;
+  movePageToFolder: (pageId: string, folder: string | null) => Promise<void>;
   movePage: (workspaceSlug: string, projectId: string, pageId: string, newProjectId: string) => Promise<void>;
 }
 
@@ -98,6 +99,7 @@ export class ProjectPageStore implements IProjectPageStore {
       fetchPageDetails: action,
       createPage: action,
       removePage: action,
+      movePageToFolder: action,
       movePage: action,
     });
     this.rootStore = store;
@@ -347,6 +349,13 @@ export class ProjectPageStore implements IProjectPageStore {
       });
       throw error;
     }
+  };
+
+  movePageToFolder = async (pageId: string, folder: string | null) => {
+    const { workspaceSlug, projectId } = this.store.router;
+    if (!workspaceSlug || !projectId) throw new Error("Missing project.");
+    await this.service.update(workspaceSlug, projectId, pageId, { folder });
+    this.getPageById(pageId)?.mutateProperties({ folder }, false);
   };
 
   /**

@@ -114,5 +114,21 @@
   },
   "page_content_limit_banner": {
     "message": "Content limit reached and live sync is off. Create a new page or use nested pages to continue syncing."
+  },
+  "page_folders": {
+    "title": "Folders",
+    "create": "Create folder",
+    "rename": "Rename folder",
+    "delete": "Delete folder",
+    "all_pages": "All pages",
+    "no_folder": "No folder",
+    "move": "Move to folder",
+    "name": "Folder name",
+    "cancel": "Cancel",
+    "empty": "No pages in this folder for the current tab and filters. Create a page here or move an existing page into this folder.",
+    "delete_description": "Delete “{name}”? Pages in this folder will be kept.",
+    "error": "Could not save the folder change. Please try again.",
+    "loading": "Loading folders…",
+    "retry": "Could not load folders. Retry"
   }
 }
