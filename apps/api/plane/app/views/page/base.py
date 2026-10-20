@@ -4,7 +4,7 @@
 
 # Python imports
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from django.core.serializers.json import DjangoJSONEncoder
 
 # Django imports
@@ -48,6 +48,8 @@ from plane.db.models import (
 )
 from plane.utils.error_codes import ERROR_CODES
 from plane.utils.order_queryset import PAGE_ORDER_BY_ALLOWLIST, sanitize_order_by
+from plane.settings.redis import redis_instance
+from plane.utils.exception_logger import log_exception
 
 # Local imports
 from ..base import BaseAPIView, BaseViewSet
@@ -198,7 +200,30 @@ class PageViewSet(BaseViewSet):
             serializer = PageDetailSerializer(page, data=request.data, partial=True, context={"project_id": project_id})
             page_description = page.description_html
             if serializer.is_valid():
+                # Content written outside the collaborative editor leaves the stored
+                # Yjs document stale; clear it so the next editor load regenerates it
+                # from the new HTML.
+                new_description_html = serializer.validated_data.get("description_html")
+                if new_description_html is not None and new_description_html != page_description:
+                    page.description_binary = None
+                    page.description_json = {}
                 serializer.save()
+                if new_description_html is not None and new_description_html != page_description:
+                    # Notify open editor sessions so they can reload the document
+                    try:
+                        redis_instance().publish(
+                            "hocuspocus:admin",
+                            json.dumps(
+                                {
+                                    "command": "restart_document",
+                                    "docId": str(page.id),
+                                    "originServer": "api",
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                }
+                            ),
+                        )
+                    except Exception as e:
+                        log_exception(e)
                 # capture the page transaction
                 if request.data.get("description_html"):
                     page_transaction.delay(

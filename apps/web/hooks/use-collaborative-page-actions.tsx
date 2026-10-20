@@ -89,16 +89,58 @@ export const useCollaborativePageActions = (props: Props) => {
     [actionHandlerMap, editorRef]
   );
 
+  // Reload the page with a clean local document: dropping the persisted Yjs
+  // state prevents the stale cached copy from merging into the fresh server doc
+  const reloadWithFreshDocument = useCallback(() => {
+    const reload = () => window.location.reload();
+    try {
+      if (!page.id) return reload();
+      const request = window.indexedDB.deleteDatabase(page.id);
+      ["success", "error", "blocked"].forEach((event) => request.addEventListener(event, reload));
+    } catch {
+      reload();
+    }
+  }, [page.id]);
+
   useEffect(() => {
     const realTimeStatelessMessageListener = editorRef?.listenToRealTimeUpdate();
     const handleStatelessMessage = (message: { payload: TDocumentEventsClient }) => {
-      if (currentActionBeingProcessed === message.payload) {
+      const payload = message.payload;
+
+      // Notification messages arrive as serialized JSON objects rather than
+      // document event names (e.g. content changed outside this session).
+      if (typeof payload === "string" && payload.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(payload);
+          if (parsed?.type === "external_update") {
+            setToast({
+              type: "warning",
+              title: "Page updated",
+              message: "This page was updated outside this editing session.",
+              actionItems: (
+                <button
+                  type="button"
+                  className="text-custom-text-100 hover:text-custom-text-200 text-13 font-medium underline"
+                  onClick={reloadWithFreshDocument}
+                >
+                  Reload
+                </button>
+              ),
+            });
+            return;
+          }
+        } catch {
+          // fall through to the regular collaborative action handling
+        }
+      }
+
+      if (currentActionBeingProcessed === payload) {
         setCurrentActionBeingProcessed(null);
         return;
       }
 
-      if (message.payload) {
-        executeCollaborativeAction({ type: "receivedMessageFromServer", message: message.payload });
+      if (payload) {
+        executeCollaborativeAction({ type: "receivedMessageFromServer", message: payload });
       }
     };
 
@@ -107,7 +149,7 @@ export const useCollaborativePageActions = (props: Props) => {
     return () => {
       realTimeStatelessMessageListener?.off("stateless", handleStatelessMessage);
     };
-  }, [editorRef, currentActionBeingProcessed, executeCollaborativeAction]);
+  }, [editorRef, currentActionBeingProcessed, executeCollaborativeAction, reloadWithFreshDocument]);
 
   return {
     executeCollaborativeAction,
