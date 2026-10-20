@@ -4,7 +4,9 @@
 from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.api.rate_limit import ApiKeyRateThrottle
 from plane.app.views.page.base import PageViewSet
+from plane.app.views.page.folder import PageFolderEndpoint
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 
@@ -25,6 +27,7 @@ class ProjectPageAPIEndpoint(PageViewSet):
         "archived_at",
         "view_props",
         "logo_props",
+        "folder",
     }
 
     def _check_write_fields(self, request):
@@ -47,3 +50,19 @@ class ProjectPageAPIEndpoint(PageViewSet):
         if error is not None:
             return error
         return super().partial_update(request, *args, **kwargs)
+
+
+class ProjectPageFolderAPIEndpoint(PageFolderEndpoint):
+    """Expose project folder operations with the same permissions as the app."""
+
+    authentication_classes = [APIKeyAuthentication]
+    throttle_classes = [ApiKeyRateThrottle]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if request.method in ("POST", "PATCH"):
+            if not isinstance(request.data, dict):
+                raise ValidationError("Request body must be a JSON object.")
+            unexpected = set(request.data) - {"name"}
+            if unexpected:
+                raise ValidationError({"error": "Unsupported folder fields", "fields": sorted(unexpected)})

@@ -3,10 +3,20 @@
 
 from django.urls import path
 
-from plane.api.views.page import ProjectPageAPIEndpoint
+from plane.api.views.page import ProjectPageAPIEndpoint, ProjectPageFolderAPIEndpoint
 
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/page-folders/",
+        ProjectPageFolderAPIEndpoint.as_view(),
+        name="api-project-page-folders",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/page-folders/<uuid:folder_id>/",
+        ProjectPageFolderAPIEndpoint.as_view(),
+        name="api-project-page-folder",
+    ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/pages/",
         ProjectPageAPIEndpoint.as_view({"get": "list", "post": "create"}),
