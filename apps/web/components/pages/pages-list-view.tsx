@@ -1,0 +1,58 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { observer } from "mobx-react";
+import useSWR from "swr";
+import type { TPageNavigationTabs } from "@plane/types";
+// hooks
+import type { EPageStoreType } from "@/hooks/store";
+import { usePageStore } from "@/hooks/store";
+// local imports
+import { PagesListHeaderRoot } from "./header";
+import { PagesListMainContent } from "./pages-list-main-content";
+import { PageFolderNavigation } from "./folders/navigation";
+
+type TPageView = {
+  children: React.ReactNode;
+  pageType: TPageNavigationTabs;
+  projectId: string;
+  storeType: EPageStoreType;
+  workspaceSlug: string;
+};
+
+export const PagesListView = observer(function PagesListView(props: TPageView) {
+  const { children, pageType, projectId, storeType, workspaceSlug } = props;
+  // store hooks
+  const { isAnyPageAvailable, fetchPagesList } = usePageStore(storeType);
+  // fetching pages list
+  useSWR(
+    workspaceSlug && projectId && pageType ? `PROJECT_PAGES_${projectId}` : null,
+    workspaceSlug && projectId && pageType ? () => fetchPagesList(workspaceSlug, projectId, pageType) : null
+  );
+
+  // pages loader
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden">
+      {/* tab header */}
+      {isAnyPageAvailable && (
+        <PagesListHeaderRoot
+          pageType={pageType}
+          projectId={projectId}
+          storeType={storeType}
+          workspaceSlug={workspaceSlug}
+        />
+      )}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <PageFolderNavigation />
+        <div className="min-h-0 min-w-0 flex-1">
+          <PagesListMainContent pageType={pageType} storeType={storeType}>
+            {children}
+          </PagesListMainContent>
+        </div>
+      </div>
+    </div>
+  );
+});
