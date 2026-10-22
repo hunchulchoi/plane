@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { useSWRConfig } from "swr";
 import { observer } from "mobx-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 // constants
@@ -18,6 +19,8 @@ import type { TPage } from "@plane/types";
 import { Breadcrumbs } from "@plane/blocks/breadcrumb";
 import { Header } from "@plane/blocks/layout";
 // helpers
+import { DataRefreshButton } from "@/components/common/data-refresh-button";
+import { pageFolderService } from "@/hooks/pages/use-page-folders";
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
@@ -37,7 +40,23 @@ export const PagesListHeader = observer(function PagesListHeader() {
   const pageType = searchParams.get("type");
   // store hooks
   const { currentProjectDetails, loader } = useProject();
-  const { canCurrentUserCreatePage, createPage } = usePageStore(EPageStoreType.PROJECT);
+  const {
+    canCurrentUserCreatePage,
+    createPage,
+    fetchPagesList,
+    loader: pagesLoader,
+  } = usePageStore(EPageStoreType.PROJECT);
+  const { mutate } = useSWRConfig();
+  const refreshPages = async () => {
+    const slug = workspaceSlug?.toString();
+    const project = projectId?.toString();
+    if (!slug || !project) throw new Error("Missing project");
+    const [, folders] = await Promise.all([
+      fetchPagesList(slug, project, undefined, true),
+      pageFolderService.fetchFolders(slug, project),
+    ]);
+    await mutate(["PROJECT_PAGE_FOLDERS", slug, project], folders, { revalidate: false });
+  };
   // handle page create
   const handleCreatePage = async () => {
     setIsCreatingPage(true);
@@ -84,8 +103,13 @@ export const PagesListHeader = observer(function PagesListHeader() {
           />
         </Breadcrumbs>
       </Header.LeftItem>
-      {canCurrentUserCreatePage && (
-        <Header.RightItem>
+      <Header.RightItem>
+        <DataRefreshButton
+          key={`${workspaceSlug}:${projectId}:${pageType ?? "public"}`}
+          onRefresh={refreshPages}
+          disabled={!workspaceSlug || !projectId || !!pagesLoader}
+        />
+        {canCurrentUserCreatePage && (
           <Button
             variant="primary"
             size="md"
@@ -94,8 +118,8 @@ export const PagesListHeader = observer(function PagesListHeader() {
             onClick={handleCreatePage}
             loading={isCreatingPage}
           />
-        </Header.RightItem>
-      )}
+        )}
+      </Header.RightItem>
     </Header>
   );
 });

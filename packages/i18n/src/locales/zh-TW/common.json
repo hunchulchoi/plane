@@ -874,5 +874,10 @@
       "short_description": "匯出為 JSON"
     }
   },
-  "labels_count": "{count, plural, one {# 個標籤} other {# 個標籤}}"
+  "labels_count": "{count, plural, one {# 個標籤} other {# 個標籤}}",
+  "data_refresh": {
+    "last_refreshed": "Last refreshed",
+    "not_refreshed": "Not refreshed yet",
+    "error": "Could not refresh. Please try again."
+  }
 }

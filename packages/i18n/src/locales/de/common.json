@@ -874,5 +874,10 @@
       "short_description": "Als JSON exportieren"
     }
   },
-  "labels_count": "{count, plural, one {# Label} other {# Labels}}"
+  "labels_count": "{count, plural, one {# Label} other {# Labels}}",
+  "data_refresh": {
+    "last_refreshed": "Last refreshed",
+    "not_refreshed": "Not refreshed yet",
+    "error": "Could not refresh. Please try again."
+  }
 }

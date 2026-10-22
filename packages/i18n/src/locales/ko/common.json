@@ -874,5 +874,10 @@
       "short_description": "JSON으로 내보내기"
     }
   },
-  "labels_count": "{count, plural, one {레이블 #개} other {레이블 #개}}"
+  "labels_count": "{count, plural, one {레이블 #개} other {레이블 #개}}",
+  "data_refresh": {
+    "last_refreshed": "마지막 새로고침",
+    "not_refreshed": "새로고침 기록 없음",
+    "error": "새로고침하지 못했습니다. 다시 시도하세요."
+  }
 }

@@ -53,7 +53,8 @@ export interface IProjectPageStore {
   fetchPagesList: (
     workspaceSlug: string,
     projectId: string,
-    pageType?: TPageNavigationTabs
+    pageType?: TPageNavigationTabs,
+    refresh?: boolean
   ) => Promise<TPage[] | undefined>;
   fetchPageDetails: (
     workspaceSlug: string,
@@ -68,6 +69,7 @@ export interface IProjectPageStore {
 }
 
 export class ProjectPageStore implements IProjectPageStore {
+  private listedPageIds = new Map<string, Set<string>>();
   // observables
   loader: TLoader = "init-loader";
   data: Record<string, TProjectPage> = {}; // pageId => Page
@@ -207,7 +209,12 @@ export class ProjectPageStore implements IProjectPageStore {
   /**
    * @description fetch all the pages
    */
-  fetchPagesList = async (workspaceSlug: string, projectId: string, pageType?: TPageNavigationTabs) => {
+  fetchPagesList = async (
+    workspaceSlug: string,
+    projectId: string,
+    pageType?: TPageNavigationTabs,
+    refresh = false
+  ) => {
     try {
       if (!workspaceSlug || !projectId) return undefined;
 
@@ -219,12 +226,37 @@ export class ProjectPageStore implements IProjectPageStore {
 
       const pages = await this.service.fetchAll(workspaceSlug, projectId);
       runInAction(() => {
+        const ids = new Set(pages.map((page) => page.id).filter((id): id is string => !!id));
+        if (refresh) {
+          // Reconcile only previously listed roots; detail-only child pages stay in the store.
+          for (const id of this.listedPageIds.get(projectId) ?? []) {
+            if (!ids.has(id)) {
+              const page = this.getPageById(id);
+              const otherProjects = page?.project_ids?.filter((project) => project !== projectId) ?? [];
+              if (otherProjects.length) page?.mutateProperties({ project_ids: otherProjects }, false);
+              else {
+                page?.cleanup();
+                unset(this.data, [id]);
+              }
+            }
+          }
+        }
+        this.listedPageIds.set(projectId, ids);
         for (const page of pages) {
           if (page?.id) {
             const existingPage = this.getPageById(page.id);
-            if (existingPage) {
-              // If page already exists, update all fields except name
-
+            if (
+              existingPage &&
+              refresh &&
+              existingPage.name === existingPage.oldName &&
+              existingPage.isSubmitting !== "submitting" &&
+              this.store.router.query.pageId !== page.id
+            ) {
+              // A fresh instance adopts server titles without triggering title autosave.
+              existingPage.cleanup();
+              set(this.data, [page.id], new ProjectPage(this.store, page));
+            } else if (existingPage) {
+              // Preserve pending local title edits and any currently open editor.
               const { name, ...otherFields } = page;
               existingPage.mutateProperties(otherFields, false);
             } else {

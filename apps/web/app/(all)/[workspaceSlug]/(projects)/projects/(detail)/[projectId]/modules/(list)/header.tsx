@@ -15,6 +15,7 @@ import { ModuleOutline } from "@makeplane/propel/icons";
 import { Breadcrumbs } from "@plane/blocks/breadcrumb";
 import { Header } from "@plane/blocks/layout";
 // components
+import { ModuleRefreshButton } from "@/components/modules/refresh-button";
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { ModuleViewHeader } from "@/components/modules";
 // hooks
@@ -68,6 +69,7 @@ export const ModulesListHeader = observer(function ModulesListHeader() {
         </div>
       </Header.LeftItem>
       <Header.RightItem>
+        <ModuleRefreshButton />
         <ModuleViewHeader />
         {canUserCreateModule ? (
           <div className="flex">

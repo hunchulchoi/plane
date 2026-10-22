@@ -874,5 +874,10 @@
       "short_description": "导出为 JSON"
     }
   },
-  "labels_count": "{count, plural, one {# 个标签} other {# 个标签}}"
+  "labels_count": "{count, plural, one {# 个标签} other {# 个标签}}",
+  "data_refresh": {
+    "last_refreshed": "Last refreshed",
+    "not_refreshed": "Not refreshed yet",
+    "error": "Could not refresh. Please try again."
+  }
 }

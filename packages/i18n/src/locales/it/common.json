@@ -874,5 +874,10 @@
       "short_description": "Esporta come JSON"
     }
   },
-  "labels_count": "{count, plural, one {# etichetta} many {# etichette} other {# etichette}}"
+  "labels_count": "{count, plural, one {# etichetta} many {# etichette} other {# etichette}}",
+  "data_refresh": {
+    "last_refreshed": "Last refreshed",
+    "not_refreshed": "Not refreshed yet",
+    "error": "Could not refresh. Please try again."
+  }
 }

@@ -18,6 +18,7 @@ import { EIssuesStoreType } from "@plane/types";
 import { Breadcrumbs } from "@plane/blocks/breadcrumb";
 import { Header } from "@plane/blocks/layout";
 // components
+import { DataRefreshButton } from "@/components/common/data-refresh-button";
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { CountChip } from "@/components/common/count-chip";
 // constants
@@ -38,9 +39,17 @@ export const IssuesHeader = observer(function IssuesHeader() {
   const { workspaceSlug, projectId } = useParams();
   const projectCrumb = useProjectCrumbProps(workspaceSlug?.toString(), projectId?.toString());
   // store hooks
-  const {
-    issues: { getGroupIssueCount },
-  } = useIssues(EIssuesStoreType.PROJECT);
+  const { issues } = useIssues(EIssuesStoreType.PROJECT);
+  const { getGroupIssueCount } = issues;
+  const refreshIssues = async () => {
+    if (!workspaceSlug || !projectId) throw new Error("Missing project");
+    const result = await issues.fetchIssuesWithExistingPagination(
+      workspaceSlug.toString(),
+      projectId.toString(),
+      "mutation"
+    );
+    if (result === undefined) throw new Error("Issue layout is not ready");
+  };
   // i18n
   const { t } = useTranslation();
 
@@ -110,6 +119,11 @@ export const IssuesHeader = observer(function IssuesHeader() {
         )}
       </Header.LeftItem>
       <Header.RightItem>
+        <DataRefreshButton
+          key={`${workspaceSlug}:${projectId}`}
+          onRefresh={refreshIssues}
+          disabled={!workspaceSlug || !projectId || !!issues.getIssueLoader()}
+        />
         <div className="hidden gap-2 md:flex">
           <HeaderFilters
             projectId={projectId}
