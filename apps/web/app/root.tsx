@@ -5,6 +5,7 @@
  */
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Links, Meta, Outlet, Scripts } from "react-router";
 import type { LinksFunction } from "react-router";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -27,9 +28,12 @@ import { isStaleAssetError, recoverFromStaleAsset } from "@/lib/stale-asset-erro
 // local
 import { CustomErrorComponent } from "./error";
 // fonts
+// eslint-disable-next-line import/no-unassigned-import -- Font CSS is loaded for its side effects.
 import "@fontsource-variable/inter";
 import interVariableWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+// eslint-disable-next-line import/no-unassigned-import -- Font CSS is loaded for its side effects.
 import "@fontsource/material-symbols-rounded";
+// eslint-disable-next-line import/no-unassigned-import -- Font CSS is loaded for its side effects.
 import "@fontsource/ibm-plex-mono";
 
 const APP_TITLE = "Plane | Simple, extensible, open-source project management tool.";
@@ -117,9 +121,11 @@ export default function Root() {
 
 export function HydrateFallback() {
   const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  // if we are on the server or the theme is not resolved, return an empty div
-  if (typeof window === "undefined" || resolvedTheme === undefined) return <div />;
+  // The server and first client render must match before reading the client theme.
+  if (!mounted || resolvedTheme === undefined) return <div />;
 
   return (
     <div className="relative flex h-screen w-full items-center justify-center bg-canvas">
