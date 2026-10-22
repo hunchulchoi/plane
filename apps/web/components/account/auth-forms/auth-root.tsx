@@ -27,6 +27,8 @@ import { useInstance } from "@/hooks/store/use-instance";
 import { TermsAndConditions } from "../terms-and-conditions";
 import { AuthHeader, AuthHeaderBase } from "./auth-header";
 import { AuthFormRoot } from "./form-root";
+import { PasskeyLoginButton } from "./passkey";
+import { supportsPasskeys } from "@/services/passkey.service";
 
 type TAuthRoot = {
   authMode: EAuthModes;
@@ -47,6 +49,7 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
   const [authStep, setAuthStep] = useState<EAuthSteps>(EAuthSteps.EMAIL);
   const [email, setEmail] = useState(emailParam ? emailParam.toString() : "");
   const [errorInfo, setErrorInfo] = useState<TAuthErrorInfo | undefined>(undefined);
+  const [passkeySupported, setPasskeySupported] = useState(false);
   // store hooks
   const { config } = useInstance();
   // translation
@@ -55,7 +58,10 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
   const oAuthActionText = authMode === EAuthModes.SIGN_UP ? "Sign up" : "Sign in";
   const { isOAuthEnabled, oAuthOptions } = useOAuthConfig(oAuthActionText);
   const isEmailBasedAuthEnabled = config?.is_email_password_enabled || config?.is_magic_login_enabled;
-  const noAuthMethodsAvailable = !isOAuthEnabled && !isEmailBasedAuthEnabled;
+  const noAuthMethodsAvailable =
+    !isOAuthEnabled && !isEmailBasedAuthEnabled && !(passkeySupported && authMode === EAuthModes.SIGN_IN);
+
+  useEffect(() => setPasskeySupported(supportsPasskeys()), []);
 
   useEffect(() => {
     if (!authMode && currentAuthMode) setAuthMode(currentAuthMode);
@@ -147,13 +153,14 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
           authStep={authStep}
           authMode={authMode}
           email={email}
-          setEmail={(email) => setEmail(email)}
-          setAuthMode={(authMode) => setAuthMode(authMode)}
-          setAuthStep={(authStep) => setAuthStep(authStep)}
-          setErrorInfo={(errorInfo) => setErrorInfo(errorInfo)}
+          setEmail={setEmail}
+          setAuthMode={setAuthMode}
+          setAuthStep={setAuthStep}
+          setErrorInfo={setErrorInfo}
           currentAuthMode={currentAuthMode}
         />
       )}
+      {authMode === EAuthModes.SIGN_IN && <PasskeyLoginButton />}
       <TermsAndConditions authType={authMode} />
     </AuthContainer>
   );

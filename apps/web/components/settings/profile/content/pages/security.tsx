@@ -25,6 +25,7 @@ import { authErrorHandler, EAuthenticationErrorCodes, passwordErrors } from "@/h
 import { useUser } from "@/hooks/store/user";
 // services
 import { AuthService } from "@/services/auth.service";
+import { PasskeySettings } from "./passkeys";
 
 export interface FormValues {
   old_password: string;
@@ -288,6 +289,7 @@ export const SecurityProfileSettings = observer(function SecurityProfileSettings
           </div>
         </div>
       </form>
+      <PasskeySettings />
     </div>
   );
 });

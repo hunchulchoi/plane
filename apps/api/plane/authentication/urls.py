@@ -3,6 +3,14 @@
 # See the LICENSE file for details.
 
 from django.urls import path
+from .views.app.passkey import (
+    PasskeyRegistrationOptions,
+    PasskeyRegistrationVerify,
+    PasskeyAuthenticationOptions,
+    PasskeyAuthenticationVerify,
+    PasskeyList,
+    PasskeyDetail,
+)
 
 from .views import (
     CSRFTokenEndpoint,
@@ -47,6 +55,12 @@ from .views import (
 )
 
 urlpatterns = [
+    path("passkeys/", PasskeyList.as_view(), name="passkey-list"),
+    path("passkeys/<uuid:key_id>/", PasskeyDetail.as_view(), name="passkey-detail"),
+    path("passkeys/register/options/", PasskeyRegistrationOptions.as_view(), name="passkey-register-options"),
+    path("passkeys/register/verify/", PasskeyRegistrationVerify.as_view(), name="passkey-register-verify"),
+    path("passkeys/login/options/", PasskeyAuthenticationOptions.as_view(), name="passkey-login-options"),
+    path("passkeys/login/verify/", PasskeyAuthenticationVerify.as_view(), name="passkey-login-verify"),
     # credentials
     path("sign-in/", SignInAuthEndpoint.as_view(), name="sign-in"),
     path("sign-up/", SignUpAuthEndpoint.as_view(), name="sign-up"),
