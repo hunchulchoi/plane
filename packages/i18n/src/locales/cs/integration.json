@@ -327,5 +327,23 @@
     "finished": "Dokončeno",
     "error": "Chyba",
     "cancelled": "Zrušeno"
+  },
+  "forgejo_integration": {
+    "description": "Connect a repository to a project. Mention a work item key (PROJ-123) in commit messages or PR titles/descriptions to add links automatically. PR links show open, closed, or merged status.",
+    "project": "Choose project",
+    "repository": "Repository URL",
+    "connect": "Connect repository",
+    "disconnect": "Disconnect",
+    "confirm_disconnect": "Disconnect this repository? Incoming webhooks will stop. Existing work item links remain.",
+    "setup": "In the Forgejo repository, open Settings → Webhooks → Add webhook → Forgejo (or Gitea). Use POST, application/json, the URL and secret below, and enable Push and Pull Request events.",
+    "webhook_url": "Webhook URL",
+    "secret": "Webhook secret",
+    "secret_notice": "Copy this secret now. It is shown only once. To replace it, disconnect and reconnect, then update the Forgejo webhook.",
+    "done": "I have saved the webhook settings",
+    "last_received": "Last received",
+    "waiting": "Waiting for a webhook",
+    "empty": "No connected repositories.",
+    "connect_error": "Could not connect. Check the repository URL, your project access, and whether it is already connected.",
+    "error": "Could not load or update Forgejo connections. Please try again."
   }
 }

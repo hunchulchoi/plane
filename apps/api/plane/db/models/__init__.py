@@ -91,3 +91,4 @@ from .sticky import Sticky
 
 from .description import Description, DescriptionVersion
 from .passkey import Passkey
+from .integration.forgejo import ForgejoRepository, ForgejoDelivery
