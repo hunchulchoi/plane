@@ -23,6 +23,8 @@ services:
       - web
 
   space:
+    image: runtime-security/space:20261026
+    pull_policy: never
     container_name: space
     build:
       context: .
@@ -35,6 +37,8 @@ services:
       - web
 
   api:
+    image: runtime-security/api:20261026
+    pull_policy: never
     container_name: api
     build:
       context: ./apps/api
@@ -50,6 +54,8 @@ services:
       - plane-redis
 
   worker:
+    image: runtime-security/bgworker:20261026
+    pull_policy: never
     container_name: bgworker
     build:
       context: ./apps/api
@@ -66,6 +72,8 @@ services:
       - plane-redis
 
   beat-worker:
+    image: runtime-security/beatworker:20261026
+    pull_policy: never
     container_name: beatworker
     build:
       context: ./apps/api
@@ -97,6 +105,8 @@ services:
       - plane-redis
 
   live:
+    image: runtime-security/plane-live:20261026
+    pull_policy: never
     container_name: plane-live
     build:
       context: .
