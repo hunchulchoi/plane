@@ -39,7 +39,6 @@ import { handleDeleteKeyOnTable } from "./utilities/delete-key-shortcut";
 import { deleteRowOrTable } from "./utilities/delete-row";
 import { insertLineAboveTableAction } from "./utilities/insert-line-above-table-action";
 import { insertLineBelowTableAction } from "./utilities/insert-line-below-table-action";
-import { DEFAULT_COLUMN_WIDTH } from ".";
 
 type TableOptions = {
   HTMLAttributes: Record<string, unknown>;
@@ -130,7 +129,6 @@ export const Table = Node.create<TableOptions>({
             rowsCount: rows,
             colsCount: cols,
             withHeaderRow,
-            columnWidth: DEFAULT_COLUMN_WIDTH,
           });
           if (dispatch) {
             const offset = tr.selection.anchor + 1;

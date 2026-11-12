@@ -15,7 +15,7 @@ type Props = {
   colsCount: number;
   withHeaderRow: boolean;
   cellContent?: Fragment | ProsemirrorNode | Array<ProsemirrorNode>;
-  columnWidth: number;
+  columnWidth?: number;
 };
 
 export const createTable = (props: Props): ProsemirrorNode => {
@@ -26,14 +26,18 @@ export const createTable = (props: Props): ProsemirrorNode => {
   const cells: ProsemirrorNode[] = [];
 
   for (let index = 0; index < colsCount; index += 1) {
-    const cell = createCell(types.cell, cellContent, { colwidth: [columnWidth] });
+    const cell = createCell(types.cell, cellContent, columnWidth ? { colwidth: [columnWidth] } : undefined);
 
     if (cell) {
       cells.push(cell);
     }
 
     if (withHeaderRow) {
-      const headerCell = createCell(types.header_cell, cellContent, { colwidth: [columnWidth] });
+      const headerCell = createCell(
+        types.header_cell,
+        cellContent,
+        columnWidth ? { colwidth: [columnWidth] } : undefined
+      );
 
       if (headerCell) {
         headerCells.push(headerCell);
