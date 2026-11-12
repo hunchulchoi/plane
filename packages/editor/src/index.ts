@@ -18,6 +18,7 @@ export * from "@/constants/common";
 // helpers
 export * from "@/helpers/common";
 export * from "@/helpers/yjs-utils";
+export * from "@/helpers/document-cache";
 
 export { CORE_EXTENSIONS } from "@/constants/extension";
 export { ADDITIONAL_EXTENSIONS } from "@/constants/extensions";

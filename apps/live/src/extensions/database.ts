@@ -9,6 +9,7 @@ import { Database as HocuspocusDatabase } from "@hocuspocus/extension-database";
 import {
   getAllDocumentFormatsFromDocumentEditorBinaryData,
   getBinaryDataFromDocumentEditorHTMLString,
+  mergeDocumentEditorHTMLIntoBinaryData,
 } from "@plane/editor";
 import type { TDocumentPayload } from "@plane/types";
 import { logger } from "@plane/logger";
@@ -27,8 +28,31 @@ const fetchDocument = async ({ context, documentName: pageId, instance }: FetchP
   try {
     const service = getPageService(context.documentType, context);
     // fetch details
-    const response = (await service.fetchDescriptionBinary(pageId)) as Buffer;
+    const { data: response, isOutdated } = await service.fetchDescriptionBinaryWithStatus(pageId);
     const binaryData = new Uint8Array(response);
+    // HTML was changed outside the editor: merge it into the stored document as an
+    // incremental update so client caches (descendants of the stored state) stay compatible
+    if (binaryData.byteLength > 0 && isOutdated) {
+      const pageDetails = await service.fetchDetails(pageId);
+      const mergedBinaryData = mergeDocumentEditorHTMLIntoBinaryData(
+        binaryData,
+        pageDetails.description_html ?? "<p></p>"
+      );
+      try {
+        const { contentBinaryEncoded, contentHTML, contentJSON } = getAllDocumentFormatsFromDocumentEditorBinaryData(
+          mergedBinaryData,
+          true
+        );
+        await service.updateDescriptionBinary(pageId, {
+          description_binary: contentBinaryEncoded,
+          description_html: contentHTML,
+          description_json: contentJSON,
+        });
+      } catch (e) {
+        logger.error("Failed to save binary after merging outdated html:", new AppError(e));
+      }
+      return mergedBinaryData;
+    }
     // if binary data is empty, convert HTML to binary data
     if (binaryData.byteLength === 0) {
       const pageDetails = await service.fetchDetails(pageId);

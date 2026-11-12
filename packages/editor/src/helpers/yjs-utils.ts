@@ -8,7 +8,7 @@ import { Buffer } from "buffer";
 import type { Extensions, JSONContent } from "@tiptap/core";
 import { getSchema } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html";
-import { prosemirrorJSONToYDoc, yXmlFragmentToProseMirrorRootNode } from "y-prosemirror";
+import { prosemirrorJSONToYDoc, updateYFragment, yXmlFragmentToProseMirrorRootNode } from "y-prosemirror";
 import * as Y from "yjs";
 // extensions
 import type { TDocumentPayload } from "@plane/types";
@@ -121,6 +121,35 @@ export const getBinaryDataFromDocumentEditorHTMLString = (descriptionHTML: strin
   // convert Y.Doc to Uint8Array format
   const encodedData = Y.encodeStateAsUpdate(transformedData);
   return encodedData;
+};
+
+/**
+ * @description merges document editor HTML into an existing Y.Doc as an incremental update.
+ * Only the nodes that differ are changed, so the result stays a descendant of the existing
+ * document and merges cleanly with copies cached by clients (e.g. in IndexedDB).
+ * @param {Y.Doc} yDoc - the document to update in place
+ * @param {string} descriptionHTML - the new HTML content
+ */
+export const mergeDocumentEditorHTMLIntoYDoc = (yDoc: Y.Doc, descriptionHTML: string): void => {
+  const contentJSON = generateJSON(descriptionHTML || "<p></p>", DOCUMENT_EDITOR_EXTENSIONS);
+  const contentNode = documentEditorSchema.nodeFromJSON(contentJSON);
+  const fragment = yDoc.getXmlFragment("default");
+  yDoc.transact(() => {
+    updateYFragment(yDoc, fragment, contentNode, { mapping: new Map(), isOMark: new Map() });
+  });
+};
+
+/**
+ * @description merges document editor HTML into existing binary data as an incremental update
+ * @param {Uint8Array} description - the existing binary data
+ * @param {string} descriptionHTML - the new HTML content
+ * @returns {Uint8Array}
+ */
+export const mergeDocumentEditorHTMLIntoBinaryData = (description: Uint8Array, descriptionHTML: string): Uint8Array => {
+  const yDoc = new Y.Doc();
+  Y.applyUpdate(yDoc, description);
+  mergeDocumentEditorHTMLIntoYDoc(yDoc, descriptionHTML);
+  return Y.encodeStateAsUpdate(yDoc);
 };
 
 /**

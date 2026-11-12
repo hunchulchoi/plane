@@ -85,7 +85,7 @@ class TestProjectPageAPI:
         assert response.data["fields"] == ["created_by", "parent"]
         assert not Page.objects.filter(name="Invalid").exists()
 
-    def test_description_html_update_invalidates_binary(self, api_key_client, workspace, page_project):
+    def test_description_html_update_flags_binary_outdated(self, api_key_client, workspace, page_project):
         url = pages_url(workspace, page_project)
         with patch("plane.app.views.page.base.page_transaction.delay"):
             created = api_key_client.post(
@@ -97,36 +97,38 @@ class TestProjectPageAPI:
         page.description_json = {"content": [{"type": "paragraph"}]}
         page.save()
 
-        with (
-            patch("plane.app.views.page.base.page_transaction.delay"),
-            patch("plane.app.views.page.base.redis_instance") as mock_redis,
-        ):
+        with patch("plane.app.views.page.base.page_transaction.delay"), patch(
+            "plane.app.views.page.base.redis_instance"
+        ) as redis_mock:
             updated = api_key_client.patch(
                 f"{url}{page_id}/", {"description_html": "<p>v2</p>"}, format="json"
             )
         assert updated.status_code == status.HTTP_200_OK, updated.data
         page.refresh_from_db()
-        assert page.description_binary is None
+        # The binary is kept so the live server can merge the new HTML into it incrementally
+        assert bytes(page.description_binary) == b"\x00\x01stale"
+        assert page.description_binary_outdated is True
         assert page.description_json == {}
+        published = json.loads(redis_mock.return_value.publish.call_args[0][1])
+        assert published["command"] == "restart_document"
+        assert published["descriptionHtml"] == page.description_html
 
-        # Open editor sessions are notified so they can reload the document
-        mock_redis.return_value.publish.assert_called_once()
-        channel, payload = mock_redis.return_value.publish.call_args[0]
-        assert channel == "hocuspocus:admin"
-        assert json.loads(payload)["command"] == "restart_document"
-        assert json.loads(payload)["docId"] == str(page_id)
-
-        # Re-sending identical content must not invalidate the binary again
-        page.description_binary = b"\x00\x01fresh"
+        # Re-sending identical content must not flag the binary again
+        page.description_binary_outdated = False
         page.save()
-        with (
-            patch("plane.app.views.page.base.page_transaction.delay"),
-            patch("plane.app.views.page.base.redis_instance") as mock_redis,
-        ):
+        with patch("plane.app.views.page.base.page_transaction.delay"):
             api_key_client.patch(f"{url}{page_id}/", {"description_html": "<p>v2</p>"}, format="json")
         page.refresh_from_db()
-        assert page.description_binary is not None
-        mock_redis.return_value.publish.assert_not_called()
+        assert page.description_binary_outdated is False
+
+    def test_description_html_update_without_binary_is_not_flagged(self, api_key_client, workspace, page_project):
+        url = pages_url(workspace, page_project)
+        with patch("plane.app.views.page.base.page_transaction.delay"):
+            created = api_key_client.post(url, {"name": "Doc", "description_html": "<p>v1</p>"}, format="json")
+            api_key_client.patch(f"{url}{created.data['id']}/", {"description_html": "<p>v2</p>"}, format="json")
+        page = Page.objects.get(pk=created.data["id"])
+        assert page.description_binary is None
+        assert page.description_binary_outdated is False
 
     def test_metadata_update_preserves_binary(self, api_key_client, workspace, page_project):
         url = pages_url(workspace, page_project)

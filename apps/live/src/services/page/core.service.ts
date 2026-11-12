@@ -19,9 +19,7 @@ export type TUserMention = {
 export abstract class PageCoreService extends APIService {
   protected abstract basePath: string;
 
-  constructor() {
-    super();
-  }
+  
 
   async fetchDetails(pageId: string): Promise<TPage> {
     try {
@@ -39,6 +37,14 @@ export abstract class PageCoreService extends APIService {
   }
 
   async fetchDescriptionBinary(pageId: string): Promise<Buffer> {
+    return (await this.fetchDescriptionBinaryWithStatus(pageId)).data;
+  }
+
+  /**
+   * Fetches the description binary along with whether the API flagged it as outdated,
+   * i.e. the description HTML was changed outside the collaborative editor since.
+   */
+  async fetchDescriptionBinaryWithStatus(pageId: string): Promise<{ data: Buffer; isOutdated: boolean }> {
     try {
       const response = await this.get(`${this.basePath}/pages/${pageId}/description/`, {
         headers: {
@@ -51,7 +57,8 @@ export abstract class PageCoreService extends APIService {
       if (!Buffer.isBuffer(data)) {
         throw new Error("Expected response to be a Buffer");
       }
-      return data;
+      const isOutdated = String(response?.headers?.["x-description-outdated"] ?? "").toLowerCase() === "true";
+      return { data, isOutdated };
     } catch (error) {
       const appError = new AppError(error, {
         context: { operation: "fetchDescriptionBinary", pageId },

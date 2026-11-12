@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { TDocumentEventsServer } from "@plane/editor";
 import type { TDocumentEventsClient } from "@plane/editor/lib";
-import { DocumentCollaborativeEvents, getServerEventName } from "@plane/editor/lib";
+import { DocumentCollaborativeEvents, getDocumentCacheName, getServerEventName } from "@plane/editor/lib";
 import { setToast } from "@plane/blocks/toast";
 // store
 import type { TPageInstance } from "@/store/pages/base-page";
@@ -95,7 +95,7 @@ export const useCollaborativePageActions = (props: Props) => {
     const reload = () => window.location.reload();
     try {
       if (!page.id) return reload();
-      const request = window.indexedDB.deleteDatabase(page.id);
+      const request = window.indexedDB.deleteDatabase(getDocumentCacheName(page.id));
       ["success", "error", "blocked"].forEach((event) => request.addEventListener(event, reload));
     } catch {
       reload();

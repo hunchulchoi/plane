@@ -13,6 +13,8 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import type * as Y from "yjs";
 // types
 import type { CollaborationState, CollabStage, CollaborationError } from "@/types/collaboration";
+// helpers
+import { deleteLegacyDocumentCache, getDocumentCacheName } from "@/helpers/document-cache";
 
 // Helper to check if a close code indicates a forced close
 const isForcedCloseCode = (code: number | undefined): boolean => {
@@ -271,7 +273,8 @@ export const useYjsSetup = ({ docId, serverUrl, authToken, onStateChange }: UseY
   useEffect(() => {
     if (!yjsSession) return;
 
-    const idbPersistence = new IndexeddbPersistence(docId, yjsSession.provider.document);
+    deleteLegacyDocumentCache(docId);
+    const idbPersistence = new IndexeddbPersistence(getDocumentCacheName(docId), yjsSession.provider.document);
 
     const onIdbSynced = () => {
       const yFragment = idbPersistence.doc.getXmlFragment("default");

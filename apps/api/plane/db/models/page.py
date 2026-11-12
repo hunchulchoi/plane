@@ -42,6 +42,9 @@ class Page(BaseModel):
     name = models.TextField(blank=True)
     description_json = models.JSONField(default=dict, blank=True)
     description_binary = models.BinaryField(null=True)
+    # True when description_html was written outside the collaborative editor
+    # and has not yet been merged into description_binary by the live server.
+    description_binary_outdated = models.BooleanField(default=False)
     description_html = models.TextField(blank=True, default="<p></p>")
     description_stripped = models.TextField(blank=True, null=True)
     owned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pages")

@@ -96,6 +96,8 @@ export interface HealthCheckCommandData {
 export interface RestartDocumentCommandData {
   command: AdminCommand.RESTART_DOCUMENT;
   docId: string;
+  /** New description HTML written outside the collaborative session */
+  descriptionHtml?: string;
   originServer: string;
   timestamp?: string;
 }

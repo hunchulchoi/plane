@@ -201,15 +201,18 @@ class PageViewSet(BaseViewSet):
             page_description = page.description_html
             if serializer.is_valid():
                 # Content written outside the collaborative editor leaves the stored
-                # Yjs document stale; clear it so the next editor load regenerates it
-                # from the new HTML.
+                # Yjs document stale. Keep the binary (browsers cache descendants of it)
+                # and flag it so the live server merges the new HTML into it as an
+                # incremental Yjs update instead of regenerating an unrelated document.
                 new_description_html = serializer.validated_data.get("description_html")
                 if new_description_html is not None and new_description_html != page_description:
-                    page.description_binary = None
+                    if page.description_binary:
+                        page.description_binary_outdated = True
                     page.description_json = {}
                 serializer.save()
                 if new_description_html is not None and new_description_html != page_description:
-                    # Notify open editor sessions so they can reload the document
+                    # Hand the new HTML to the live server so an open editor session merges
+                    # it into its in-memory document (and keeps it over any pending save)
                     try:
                         redis_instance().publish(
                             "hocuspocus:admin",
@@ -217,6 +220,7 @@ class PageViewSet(BaseViewSet):
                                 {
                                     "command": "restart_document",
                                     "docId": str(page.id),
+                                    "descriptionHtml": page.description_html,
                                     "originServer": "api",
                                     "timestamp": datetime.now(timezone.utc).isoformat(),
                                 }
@@ -538,6 +542,8 @@ class PagesDescriptionViewSet(BaseViewSet):
 
         response = StreamingHttpResponse(stream_data(), content_type="application/octet-stream")
         response["Content-Disposition"] = 'attachment; filename="page_description.bin"'
+        if binary_data and page.description_binary_outdated:
+            response["X-Description-Outdated"] = "true"
         return response
 
     def partial_update(self, request, slug, project_id, page_id):

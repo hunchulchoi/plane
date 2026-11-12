@@ -233,6 +233,7 @@ class PageBinaryUpdateSerializer(serializers.Serializer):
         """Update the page instance with validated data"""
         if "description_binary" in validated_data:
             instance.description_binary = validated_data.get("description_binary")
+            instance.description_binary_outdated = False
 
         if "description_html" in validated_data:
             instance.description_html = validated_data.get("description_html")

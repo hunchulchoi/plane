@@ -5,7 +5,8 @@
  */
 
 // hocuspocus
-import type { Extension, onConfigurePayload } from "@hocuspocus/server";
+import type { Document, Extension, Hocuspocus, onConfigurePayload } from "@hocuspocus/server";
+import { mergeDocumentEditorHTMLIntoYDoc } from "@plane/editor";
 import { logger } from "@plane/logger";
 import { Redis } from "@/extensions/redis";
 import { AdminCommand, isRestartDocumentCommand } from "@/types/admin-commands";
@@ -14,8 +15,9 @@ import type { ClientDocumentUpdateMessage, RestartDocumentCommandData } from "@/
 /**
  * Extension to handle restart_document admin commands via the Redis admin channel.
  * Sent when a document's content is updated outside the collaborative session
- * (e.g. via the REST API): connected clients are notified so they can reload
- * the fresh document instead of overwriting it with their stale state.
+ * (e.g. via the REST API). The new HTML is merged into the in-memory document as
+ * an incremental Yjs update, so connected clients receive it live and the next
+ * save keeps it. If the merge is not possible, clients are asked to reload.
  */
 export class RestartDocumentHandler implements Extension {
   name = "RestartDocumentHandler";
@@ -35,11 +37,15 @@ export class RestartDocumentHandler implements Extension {
         return;
       }
 
-      const { docId } = data;
+      const { docId, descriptionHtml } = data;
       const document = instance.documents.get(docId);
 
       if (!document) {
-        // Document not loaded in memory - no clients to notify
+        // Document not loaded in memory - the next load merges the outdated HTML
+        return;
+      }
+
+      if (descriptionHtml != null && (await mergeIntoLoadedDocument(instance, document, descriptionHtml))) {
         return;
       }
 
@@ -65,3 +71,33 @@ export class RestartDocumentHandler implements Extension {
     logger.info("[RESTART_DOCUMENT_HANDLER] Registered with Redis extension");
   }
 }
+
+/**
+ * Merge new HTML into a loaded document through a direct connection that reuses an
+ * existing client's context, so the store hook can persist the result.
+ * @returns whether the merge was applied
+ */
+const mergeIntoLoadedDocument = async (
+  instance: Hocuspocus,
+  document: Document,
+  descriptionHtml: string
+): Promise<boolean> => {
+  const firstConnection = document.connections.values().next().value?.connection;
+  if (!firstConnection) return false;
+
+  try {
+    const directConnection = await instance.openDirectConnection(document.name, firstConnection.context);
+    try {
+      if (!directConnection.document) return false;
+      mergeDocumentEditorHTMLIntoYDoc(directConnection.document, descriptionHtml);
+    } finally {
+      // disconnecting persists the merged document through the store hook
+      await directConnection.disconnect();
+    }
+    logger.info(`[RESTART_DOCUMENT_HANDLER] Merged external update into ${document.name}`);
+    return true;
+  } catch (error) {
+    logger.error("[RESTART_DOCUMENT_HANDLER] Failed to merge external update:", error);
+    return false;
+  }
+};
